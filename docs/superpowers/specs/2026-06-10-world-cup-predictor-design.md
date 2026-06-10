@@ -16,7 +16,7 @@ A personal tool that predicts the outcome of each 2026 FIFA World Cup match. For
 
 ## Non-goals
 
-- No model fine-tuning or retraining.
+- No model fine-tuning or weight-level training. The predictor *does* improve over time by feeding past results and its own track record into each prompt as context (in-context learning), but Claude's weights are never modified.
 - No multi-user support, authentication, or hosting beyond the user's machine.
 - No live in-match updates — one prediction per match, locked in at kick-off.
 - No betting integrations (read-only odds, never place a bet).
