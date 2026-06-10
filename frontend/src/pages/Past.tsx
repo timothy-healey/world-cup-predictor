@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { ExportPayload, Match } from "../types/api";
 import { PastMatchCard } from "../components/PastMatchCard";
 import { actualWinnerCode } from "../lib/outcome";
+import { buildTeamNameLookup } from "../lib/teams";
 
 interface Props {
   data: ExportPayload;
@@ -18,6 +19,8 @@ function anyCorrect(m: Match): boolean | null {
 export function Past({ data }: Props) {
   const [team, setTeam] = useState<string>("all");
   const [verdict, setVerdict] = useState<Verdict>("all");
+
+  const teamName = useMemo(() => buildTeamNameLookup(data.teams), [data.teams]);
 
   const filtered: Match[] = useMemo(() => {
     let rows = data.matches.filter(
@@ -78,7 +81,7 @@ export function Past({ data }: Props) {
           No past results match these filters.
         </div>
       ) : (
-        filtered.map((m) => <PastMatchCard key={m.id} match={m} />)
+        filtered.map((m) => <PastMatchCard key={m.id} match={m} teamName={teamName} />)
       )}
     </div>
   );
