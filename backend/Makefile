@@ -1,6 +1,15 @@
-.PHONY: build test test-verbose run install clean
+.PHONY: build test test-verbose run install clean build-frontend
 
-build:
+FRONTEND := ../frontend
+
+build-frontend:
+	npm --prefix $(FRONTEND) ci
+	npm --prefix $(FRONTEND) run build
+	rm -rf internal/server/dist
+	mkdir -p internal/server/dist
+	cp -R $(FRONTEND)/dist/. internal/server/dist/
+
+build: build-frontend
 	go build -o bin/wcp ./cmd/wcp
 
 test:
@@ -18,4 +27,6 @@ install: build
 	@echo "installed to $(HOME)/bin/wcp"
 
 clean:
-	rm -rf bin/
+	rm -rf bin/ internal/server/dist
+	mkdir -p internal/server/dist
+	touch internal/server/dist/.gitkeep
