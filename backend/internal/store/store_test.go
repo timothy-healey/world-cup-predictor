@@ -47,6 +47,28 @@ func TestTeamUpsertAndGet(t *testing.T) {
 	require.Equal(t, "Argentina (updated)", got.Name)
 }
 
+func TestGetTeamByFixtureSrcID(t *testing.T) {
+	s, _ := Open(filepath.Join(t.TempDir(), "wcp.db"))
+	defer s.Close()
+
+	// Insert a team where the upstream's /teams TLA (CUW) differs from the
+	// /matches TLA (CUR) — the realistic football-data.org case for Curaçao.
+	// We store the /teams TLA as the canonical code and the numeric ID
+	// (here 1538) in fixture_src_id.
+	require.NoError(t, s.UpsertTeam(Team{
+		Code: "CUW", Name: "Curaçao", FixtureSrcID: "1538",
+	}))
+
+	got, err := s.GetTeamByFixtureSrcID("1538")
+	require.NoError(t, err)
+	require.Equal(t, "CUW", got.Code)
+	require.Equal(t, "Curaçao", got.Name)
+
+	// Unknown ID -> sql.ErrNoRows.
+	_, err = s.GetTeamByFixtureSrcID("9999")
+	require.Error(t, err)
+}
+
 func TestMatchUpsertAndList(t *testing.T) {
 	s, _ := Open(filepath.Join(t.TempDir(), "wcp.db"))
 	defer s.Close()

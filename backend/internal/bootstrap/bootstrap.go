@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -38,15 +39,32 @@ func Run(ctx context.Context, s *store.Store, c *fdorg.Client, agentsDir, workDi
 		return fmt.Errorf("get fixtures: %w", err)
 	}
 	for _, m := range fixtures {
-		id, err := matchID(m)
+		// football-data.org's /matches endpoint sometimes returns a TLA that
+		// doesn't match the TLA returned by /teams (e.g. Curaçao: CUW vs CUR),
+		// which would blow up the FK constraint on matches.home_team_code.
+		// Resolve the canonical team codes via TLA first, falling back to the
+		// numeric fixture_src_id; skip the match (warn, don't fail) if neither
+		// resolution finds a team.
+		homeCode, err := resolveTeamCode(s, m.HomeTLA, m.HomeID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[warn] bootstrap: skipping match %d: home team unresolved (%v)\n", m.ID, err)
+			continue
+		}
+		awayCode, err := resolveTeamCode(s, m.AwayTLA, m.AwayID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[warn] bootstrap: skipping match %d: away team unresolved (%v)\n", m.ID, err)
+			continue
+		}
+
+		id, err := matchID(m, homeCode, awayCode)
 		if err != nil {
 			return err
 		}
 		stage := normalizeStage(m.Stage)
 		if err := s.UpsertMatch(store.Match{
 			ID:           id,
-			HomeTeamCode: m.HomeTLA,
-			AwayTeamCode: m.AwayTLA,
+			HomeTeamCode: homeCode,
+			AwayTeamCode: awayCode,
 			KickoffUTC:   m.UTCDate,
 			Stage:        stage,
 			Venue:        m.Venue,
@@ -75,12 +93,33 @@ func Run(ctx context.Context, s *store.Store, c *fdorg.Client, agentsDir, workDi
 	return nil
 }
 
-func matchID(m fdorg.Match) (string, error) {
+// resolveTeamCode returns the canonical team.code for a match team, first
+// trying the TLA (the common case) then falling back to the numeric
+// football-data.org team ID stored in teams.fixture_src_id. Returns an error
+// only when neither lookup finds a row.
+func resolveTeamCode(s *store.Store, tla string, srcID int) (string, error) {
+	if tla != "" {
+		if _, err := s.GetTeam(tla); err == nil {
+			return tla, nil
+		}
+	}
+	if srcID > 0 {
+		if t, err := s.GetTeamByFixtureSrcID(strconv.Itoa(srcID)); err == nil {
+			return t.Code, nil
+		}
+	}
+	return "", fmt.Errorf("no team for tla=%q srcID=%d", tla, srcID)
+}
+
+// matchID formats the canonical match ID using the resolved team codes
+// (which may differ from m.HomeTLA / m.AwayTLA when the /matches endpoint
+// returned a TLA that didn't match /teams — see resolveTeamCode).
+func matchID(m fdorg.Match, homeCode, awayCode string) (string, error) {
 	t, err := time.Parse(time.RFC3339, m.UTCDate)
 	if err != nil {
 		return "", fmt.Errorf("parse kickoff %q: %w", m.UTCDate, err)
 	}
-	return fmt.Sprintf("%s-%s-vs-%s", t.UTC().Format("2006-01-02"), m.HomeTLA, m.AwayTLA), nil
+	return fmt.Sprintf("%s-%s-vs-%s", t.UTC().Format("2006-01-02"), homeCode, awayCode), nil
 }
 
 func normalizeStage(s string) string {

@@ -6,8 +6,8 @@
       "status": "SCHEDULED",
       "stage": "GROUP_STAGE",
       "group": "Group F",
-      "homeTeam": {"id": 760, "tla": "ARG"},
-      "awayTeam": {"id": 802, "tla": "SAU"},
+      "homeTeam": {"id": 999, "tla": "ARG"},
+      "awayTeam": {"id": 998, "tla": "SAU"},
       "venue": "MetLife Stadium"
     }
   ]

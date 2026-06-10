@@ -14,7 +14,13 @@ type Match struct {
 	Group   string `json:"group"`
 	HomeTLA string `json:"-"`
 	AwayTLA string `json:"-"`
-	Venue   string `json:"venue"`
+	// HomeID / AwayID are football-data.org's numeric team IDs. We expose
+	// them because the /matches endpoint sometimes returns a different TLA
+	// than /teams for the same team (e.g. Curaçao: CUW vs CUR), so callers
+	// need the stable numeric ID to disambiguate.
+	HomeID int `json:"-"`
+	AwayID int `json:"-"`
+	Venue  string `json:"venue"`
 
 	HomeScore *int `json:"-"`
 	AwayScore *int `json:"-"`
@@ -27,9 +33,11 @@ type rawMatch struct {
 	Stage    string `json:"stage"`
 	Group    string `json:"group"`
 	HomeTeam struct {
+		ID  int    `json:"id"`
 		TLA string `json:"tla"`
 	} `json:"homeTeam"`
 	AwayTeam struct {
+		ID  int    `json:"id"`
 		TLA string `json:"tla"`
 	} `json:"awayTeam"`
 	Venue string `json:"venue"`
@@ -67,6 +75,8 @@ func parseMatches(body []byte) ([]Match, error) {
 			Group:     m.Group,
 			HomeTLA:   m.HomeTeam.TLA,
 			AwayTLA:   m.AwayTeam.TLA,
+			HomeID:    m.HomeTeam.ID,
+			AwayID:    m.AwayTeam.ID,
 			Venue:     m.Venue,
 			HomeScore: m.Score.FullTime.Home,
 			AwayScore: m.Score.FullTime.Away,

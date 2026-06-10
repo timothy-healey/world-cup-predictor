@@ -47,6 +47,10 @@ func TestClientGetFixturesParsesResponse(t *testing.T) {
 	require.Len(t, matches, 1)
 	require.Equal(t, "ARG", matches[0].HomeTLA)
 	require.Equal(t, "MetLife Stadium", matches[0].Venue)
+	// HomeID/AwayID are required so bootstrap can fall back to fixture_src_id
+	// when the /matches TLA doesn't match any team.code (see resolveTeamCode).
+	require.Greater(t, matches[0].HomeID, 0)
+	require.Greater(t, matches[0].AwayID, 0)
 
 	// Sanity check on JSON round-trip if needed
 	_, err = json.Marshal(matches)
