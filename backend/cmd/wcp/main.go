@@ -6,8 +6,12 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
+	"github.com/timhealey/world-cup-predictor/backend/internal/bootstrap"
 	"github.com/timhealey/world-cup-predictor/backend/internal/config"
+	"github.com/timhealey/world-cup-predictor/backend/internal/fdorg"
+	"github.com/timhealey/world-cup-predictor/backend/internal/store"
 )
 
 type command struct {
@@ -17,7 +21,7 @@ type command struct {
 }
 
 var commands = []command{
-	{name: "bootstrap", run: stubRun, help: "Fetch fixtures, write & load launchd plists"},
+	{name: "bootstrap", run: runBootstrap, help: "Fetch fixtures, write & load launchd plists"},
 	{name: "predict", run: stubRun, help: "Run a prediction for a specific match or the next one"},
 	{name: "results", run: stubRun, help: "Pull recent finished match results"},
 	{name: "serve", run: stubRun, help: "Local HTTP server for the dashboard"},
@@ -59,6 +63,18 @@ func run() error {
 
 func stubRun(ctx context.Context, cfg *config.Config, args []string) error {
 	return errors.New("not implemented yet")
+}
+
+func runBootstrap(ctx context.Context, cfg *config.Config, args []string) error {
+	s, err := store.Open(cfg.DBPath)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	c := fdorg.NewClient("https://api.football-data.org", cfg.FootballDataAPIKey)
+	home, _ := os.UserHomeDir()
+	agentsDir := filepath.Join(home, "Library", "LaunchAgents")
+	return bootstrap.Run(ctx, s, c, agentsDir)
 }
 
 func printUsage() {
