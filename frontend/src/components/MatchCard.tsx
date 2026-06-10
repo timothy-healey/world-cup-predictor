@@ -1,4 +1,5 @@
-import type { Match, Prediction } from "../types/api";
+import type { Match } from "../types/api";
+import { latestPrediction } from "../lib/trackRecord";
 import { Badge } from "./Badge";
 import { Button } from "./Button";
 import { Zap, Refresh } from "./icons";
@@ -13,11 +14,6 @@ interface Props {
   onPredict?: (matchID: string) => void;
   predictDisabled?: boolean;
   predictDisabledReason?: string;
-}
-
-function latestPrediction(m: Match): Prediction | null {
-  if (m.predictions.length === 0) return null;
-  return [...m.predictions].sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
 }
 
 export function MatchCard({

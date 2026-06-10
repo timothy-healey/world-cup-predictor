@@ -11,9 +11,9 @@ export interface TrackRecord {
   averageConfidence: number | null;
 }
 
-function latest(preds: Prediction[]): Prediction | null {
-  if (preds.length === 0) return null;
-  return [...preds].sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
+export function latestPrediction(m: Match): Prediction | null {
+  if (m.predictions.length === 0) return null;
+  return [...m.predictions].sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
 }
 
 function actualWinner(home: number, away: number, homeCode: string, awayCode: string): string {
@@ -30,7 +30,7 @@ export function trackRecord(matches: Match[]): TrackRecord {
   const confidences: Confidence[] = [];
 
   for (const m of matches) {
-    const pred = latest(m.predictions);
+    const pred = latestPrediction(m);
     if (!pred) continue;
     total += 1;
     confidences.push(pred.confidence);
