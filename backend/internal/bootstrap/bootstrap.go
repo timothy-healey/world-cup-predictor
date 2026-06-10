@@ -66,7 +66,9 @@ func normalizeStage(s string) string {
 	switch strings.ToUpper(s) {
 	case "GROUP_STAGE":
 		return "group"
-	case "ROUND_OF_16":
+	case "LAST_32", "ROUND_OF_32":
+		return "round-of-32"
+	case "LAST_16", "ROUND_OF_16":
 		return "round-of-16"
 	case "QUARTER_FINALS":
 		return "qf"

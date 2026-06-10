@@ -39,4 +39,28 @@ func TestRunPopulatesTeamsAndMatches(t *testing.T) {
 	matches, _ := s.ListMatches()
 	require.Len(t, matches, 1)
 	require.Equal(t, "2026-06-25-ARG-vs-SAU", matches[0].ID)
+
+	// Second run should be a no-op
+	require.NoError(t, Run(context.Background(), s, c, t.TempDir()))
+	teamsAgain, _ := s.ListTeams()
+	require.Len(t, teamsAgain, 2)
+	matchesAgain, _ := s.ListMatches()
+	require.Len(t, matchesAgain, 1)
+}
+
+func TestNormalizeStage(t *testing.T) {
+	cases := map[string]string{
+		"GROUP_STAGE":    "group",
+		"LAST_32":        "round-of-32",
+		"ROUND_OF_32":    "round-of-32",
+		"LAST_16":        "round-of-16",
+		"ROUND_OF_16":    "round-of-16",
+		"QUARTER_FINALS": "qf",
+		"SEMI_FINALS":    "sf",
+		"THIRD_PLACE":    "third-place",
+		"FINAL":          "final",
+	}
+	for in, want := range cases {
+		require.Equal(t, want, normalizeStage(in), "input=%s", in)
+	}
 }
