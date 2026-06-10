@@ -1,0 +1,6 @@
+.superpowers/
+
+# Local dev artifacts (also gitignored at backend/.gitignore level)
+backend/predictions.json
+backend/wcp.db
+backend/bin/

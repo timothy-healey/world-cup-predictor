@@ -1,0 +1,6 @@
+{
+  "teams": [
+    {"id": 760, "name": "Argentina", "tla": "ARG", "shortName": "Argentina", "crest": "https://crests.football-data.org/760.png"},
+    {"id": 802, "name": "Saudi Arabia", "tla": "SAU", "shortName": "Saudi Arabia", "crest": "https://crests.football-data.org/802.png"}
+  ]
+}

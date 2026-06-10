@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard mockup · World Cup Predictor</title>
+<meta name="viewport" content="width=1280">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --c-primary: #DD2680;
+    --c-primary-soft: #FBE4F0;
+    --c-secondary: #F0BA2C;
+    --c-secondary-soft: #FBE9C8;
+    --c-bg: #FAF5EB;
+    --c-surface: #FFFCF5;
+    --c-sunk: #F3EBD8;
+    --c-ink: #1B0E12;
+    --c-ink-2: #4A3940;
+    --c-ink-3: #847078;
+    --c-ink-4: #BCB0B5;
+    --c-correct: #1B7E55;
+    --c-correct-soft: #D9F1E3;
+    --c-wrong: #C73848;
+    --c-wrong-soft: #FBE0E2;
+    --c-pending: #4A6BD1;
+    --c-pending-soft: #DFE4FA;
+    --c-border: rgba(27,14,18,0.10);
+    --c-border-strong: rgba(27,14,18,0.20);
+    --c-border-dashed: rgba(27,14,18,0.18);
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--c-bg); font-family:'Inter',system-ui,sans-serif; color:var(--c-ink); }
+
+  .top { display:flex; justify-content:space-between; align-items:flex-end;
+    padding:20px 28px 0; background:var(--c-bg); border-bottom:1px solid var(--c-border); }
+  .brand { display:flex; align-items:center; gap:12px; }
+  .brand-mark { width:6px; height:34px; background:var(--c-primary); border-radius:2px; }
+  .brand-title { font-family:'Big Shoulders Display',sans-serif; font-weight:900;
+    font-size:30px; line-height:1; letter-spacing:-0.01em; text-transform:uppercase; color:var(--c-ink); }
+  .brand-sub { font-size:12px; color:var(--c-ink-3); margin-top:4px; margin-bottom:14px; }
+  .tabs { display:flex; gap:4px; }
+  .tab { padding:10px 16px; font-size:13px; font-weight:500; color:var(--c-ink-3);
+    cursor:pointer; border-bottom:2px solid transparent; }
+  .tab.active { color:var(--c-ink); border-bottom-color:var(--c-ink); }
+
+  .body { padding:28px; background:var(--c-bg); }
+
+  .section-label { text-transform:uppercase; letter-spacing:0.08em; font-size:11px;
+    font-weight:600; color:var(--c-primary); margin-bottom:14px; }
+  .section-row { display:flex; justify-content:space-between; align-items:baseline; }
+
+  .track {
+    display:grid; grid-template-columns: 2.4fr 1fr 1fr 1fr; gap:0;
+    background:var(--c-surface); border:1px solid var(--c-border);
+    border-radius:12px; padding:24px 28px; margin-bottom:32px; align-items:end; }
+  .track .hero .label { text-transform:uppercase; letter-spacing:0.08em;
+    font-size:11px; font-weight:600; color:var(--c-ink-3); margin-bottom:6px; }
+  .track .hero .big { font-family:'Big Shoulders Display',sans-serif;
+    font-weight:900; font-size:88px; line-height:0.9;
+    color:var(--c-ink); display:flex; align-items:baseline; gap:14px; }
+  .track .hero .big .pct { color:var(--c-primary); }
+  .track .hero .big .denom { font-size:32px; color:var(--c-ink-3); font-weight:800; }
+  .track .hero .note { font-size:12px; color:var(--c-ink-2); margin-top:6px; line-height:1.5;
+    max-width:32ch; }
+  .track .sup { padding-left:24px; border-left:1px solid var(--c-border); }
+  .track .sup:first-of-type { border-left:0; padding-left:24px; }
+  .track .sup .label { text-transform:uppercase; letter-spacing:0.08em;
+    font-size:10px; font-weight:600; color:var(--c-ink-3); margin-bottom:6px; }
+  .track .sup .num { font-family:'Big Shoulders Display',sans-serif;
+    font-weight:800; font-size:28px; line-height:1; color:var(--c-ink); }
+  .track .sup .sub { font-size:11px; color:var(--c-ink-3); margin-top:4px; }
+
+  .upcoming { display:grid; grid-template-columns: 1.6fr 1fr 1fr; gap:14px; margin-bottom:32px; }
+  .match { background:var(--c-surface); border:1px solid var(--c-border);
+    border-radius:12px; padding:16px 18px; display:flex; flex-direction:column;
+    gap:8px; position:relative; }
+  .match.next { padding:20px 22px; border:1px solid var(--c-ink); }
+  .match .when { font-size:11px; color:var(--c-ink-3); text-transform:uppercase;
+    letter-spacing:0.05em; font-weight:600; }
+  .match .when .pip { display:inline-block; width:6px; height:6px; border-radius:999px;
+    background:var(--c-pending); margin-right:6px; vertical-align:middle; }
+  .match .when.live .pip { background:var(--c-primary); animation: pulse 1.8s ease-out infinite; }
+  .match .teams { font-family:'Big Shoulders Display',sans-serif; font-weight:800;
+    line-height:1.0; color:var(--c-ink); text-transform:uppercase; letter-spacing:-0.01em; }
+  .match.next .teams { font-size:34px; }
+  .match .teams.compact { font-size:22px; }
+  .match .teams .vs { color:var(--c-ink-4); font-weight:700; margin:0 6px; }
+  .match .stage { font-size:11px; color:var(--c-ink-3); text-transform:uppercase;
+    letter-spacing:0.05em; font-weight:500; }
+  .match .actions { display:flex; justify-content:space-between; align-items:center;
+    margin-top:auto; padding-top:8px; }
+  .badge { display:inline-flex; align-items:center; gap:5px; font-size:11px;
+    font-weight:600; padding:4px 10px; border-radius:999px; letter-spacing:0.02em; }
+  .badge .pip { width:6px; height:6px; border-radius:999px; background:currentColor; }
+  .badge.scheduled { background:var(--c-pending-soft); color:var(--c-pending); }
+  .badge.medium    { background:var(--c-secondary-soft); color:#7A5910; }
+  .badge.high      { background:var(--c-correct-soft); color:var(--c-correct); }
+  .badge.low       { background:var(--c-wrong-soft); color:var(--c-wrong); }
+  .btn { display:inline-flex; align-items:center; gap:6px; padding:9px 16px;
+    border-radius:6px; font-size:13px; font-weight:600; border:0; cursor:pointer;
+    background:var(--c-ink); color:var(--c-secondary); font-family:'Inter',sans-serif; }
+  .btn.ghost { background:var(--c-surface); color:var(--c-ink); border:1px solid var(--c-border-strong); }
+  .ic { width:13px; height:13px; stroke:currentColor; fill:none; stroke-width:2;
+    stroke-linecap:round; stroke-linejoin:round; }
+
+  .groups { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .group { background:var(--c-surface); border:1px solid var(--c-border);
+    border-radius:8px; padding:12px 14px; }
+  .group .gname { font-family:'Big Shoulders Display',sans-serif; font-weight:800;
+    font-size:14px; text-transform:uppercase; letter-spacing:0.02em; color:var(--c-ink);
+    margin-bottom:8px; display:flex; justify-content:space-between; align-items:baseline; }
+  .group .gname .matchday { font-family:'Inter',sans-serif; font-weight:500; font-size:10px;
+    color:var(--c-ink-3); text-transform:none; letter-spacing:0; }
+  .group table { width:100%; border-collapse:collapse; font-size:11px; }
+  .group th { font-size:9px; text-transform:uppercase; letter-spacing:0.05em;
+    color:var(--c-ink-4); text-align:right; padding:3px 0; font-weight:600; }
+  .group th.left { text-align:left; }
+  .group td { padding:4px 0; text-align:right; color:var(--c-ink-2); font-family:'Inter',sans-serif; }
+  .group td.left { text-align:left; color:var(--c-ink-2); }
+  .group td.team { font-family:'Big Shoulders Display',sans-serif; font-weight:800;
+    font-size:13px; color:var(--c-ink); text-transform:uppercase; letter-spacing:0.01em; }
+  .group tr.advancing td { color:var(--c-ink); }
+  .group tr.advancing td.team { color:var(--c-ink); }
+  .group tr.advancing td.team::before {
+    content:''; display:inline-block; width:5px; height:5px; border-radius:999px;
+    background:var(--c-correct); margin-right:6px; vertical-align:middle; }
+  .group tr:not(.advancing) td.team { padding-left:11px; }
+
+  .footnote { font-size:11px; color:var(--c-ink-3); text-align:center; margin-top:20px;
+    padding-top:20px; border-top:1px dashed var(--c-border-dashed); }
+
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(221,38,128,0.55); }
+    100% { box-shadow: 0 0 0 7px rgba(221,38,128,0); }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="ic-zap" viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></symbol>
+    <symbol id="ic-refresh" viewBox="0 0 24 24">
+      <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/>
+      <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="top">
+  <div>
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div>
+        <div class="brand-title">FIFA World Cup 2026 Predictor</div>
+        <div class="brand-sub">Wed, Jun 24 · 9:42 PM AEST · 3 matches in next 24h</div>
+      </div>
+    </div>
+  </div>
+  <div class="tabs">
+    <div class="tab active">Dashboard</div>
+    <div class="tab">Upcoming</div>
+    <div class="tab">Past results</div>
+  </div>
+</div>
+
+<div class="body">
+
+  <div class="track">
+    <div class="hero">
+      <div class="label">Winner accuracy</div>
+      <div class="big">
+        <span class="pct">72<span style="font-size:48px">%</span></span>
+        <span class="denom">13 of 18</span>
+      </div>
+      <div class="note">Predictions with confirmed results so far. Sample still small. Group-stage matchday 3 will roughly double it.</div>
+    </div>
+    <div class="sup">
+      <div class="label">Exact score</div>
+      <div class="num">22<span style="font-size:16px;color:var(--c-ink-3)">%</span></div>
+      <div class="sub">4 of 18</div>
+    </div>
+    <div class="sup">
+      <div class="label">Avg confidence</div>
+      <div class="num">2.1<span style="font-size:14px;color:var(--c-ink-3)"> / 3</span></div>
+      <div class="sub">Mostly medium</div>
+    </div>
+    <div class="sup">
+      <div class="label">Predictions</div>
+      <div class="num">22</div>
+      <div class="sub">18 with results</div>
+    </div>
+  </div>
+
+  <div class="section-row" style="margin-bottom:14px">
+    <div class="section-label" style="margin:0">Upcoming matches</div>
+    <div style="font-size:12px;color:var(--c-ink-3)">soonest first</div>
+  </div>
+  <div class="upcoming">
+
+    <div class="match next">
+      <div class="when live"><span class="pip"></span>Thu Jun 25 · 4:30 AM local · in 6h 48m</div>
+      <div class="teams">🇺🇸 USA <span class="vs">vs</span> 🇮🇷 IRN</div>
+      <div class="stage">Group B · Matchday 2 · SoFi Stadium, Los Angeles</div>
+      <div class="actions">
+        <span class="badge scheduled"><span class="pip"></span>T-30 scheduled</span>
+        <button class="btn"><svg class="ic"><use href="#ic-zap"/></svg>Predict now</button>
+      </div>
+    </div>
+
+    <div class="match">
+      <div class="when"><span class="pip"></span>Thu Jun 25 · 7:00 AM · in 9h 18m</div>
+      <div class="teams compact">🇦🇷 ARG <span class="vs">vs</span> 🇸🇦 SAU</div>
+      <div class="stage">Group F · MetLife</div>
+      <div class="actions">
+        <span class="badge medium"><span class="pip"></span>Predicted</span>
+        <button class="btn ghost"><svg class="ic"><use href="#ic-refresh"/></svg>Re-predict</button>
+      </div>
+    </div>
+
+    <div class="match">
+      <div class="when"><span class="pip"></span>Thu Jun 25 · 10:00 PM · in 24h</div>
+      <div class="teams compact">🇧🇷 BRA <span class="vs">vs</span> 🇨🇲 CMR</div>
+      <div class="stage">Group G · Miami</div>
+      <div class="actions">
+        <span class="badge scheduled"><span class="pip"></span>Scheduled</span>
+        <button class="btn"><svg class="ic"><use href="#ic-zap"/></svg>Predict</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="section-row" style="margin-bottom:14px">
+    <div class="section-label" style="margin:0">Group standings</div>
+    <div style="font-size:12px;color:var(--c-ink-3)">Matchday 2 complete · knockout bracket replaces this when group stage ends</div>
+  </div>
+  <div class="groups">
+
+    <div class="group"><div class="gname">Group A <span class="matchday">MD2</span></div>
+      <table>
+        <tr><th class="left">Team</th><th>MP</th><th>GD</th><th>Pts</th></tr>
+        <tr class="advancing"><td class="team left">🇲🇽 MEX</td><td>2</td><td>+3</td><td>6</td></tr>
+        <tr class="advancing"><td class="team left">🇨🇦 CAN</td><td>2</td><td>+1</td><td>4</td></tr>
+        <tr><td class="team left">🇪🇨 ECU</td><td>2</td><td>−1</td><td>1</td></tr>
+        <tr><td class="team left">🇦🇺 AUS</td><td>2</td><td>−3</td><td>0</td></tr>
+      </table>
+    </div>
+
+    <div class="group"><div class="gname">Group B <span class="matchday">MD1</span></div>
+      <table>
+        <tr><th class="left">Team</th><th>MP</th><th>GD</th><th>Pts</th></tr>
+        <tr class="advancing"><td class="team left">🇺🇸 USA</td><td>1</td><td>+2</td><td>3</td></tr>
+        <tr class="advancing"><td class="team left">🏴 WAL</td><td>1</td><td>+1</td><td>3</td></tr>
+        <tr><td class="team left">🇮🇷 IRN</td><td>1</td><td>−1</td><td>0</td></tr>
+        <tr><td class="team left">🇰🇷 KOR</td><td>1</td><td>−2</td><td>0</td></tr>
+      </table>
+    </div>
+
+    <div class="group"><div class="gname">Group C <span class="matchday">MD2</span></div>
+      <table>
+        <tr><th class="left">Team</th><th>MP</th><th>GD</th><th>Pts</th></tr>
+        <tr class="advancing"><td class="team left">🇳🇱 NED</td><td>2</td><td>+4</td><td>6</td></tr>
+        <tr class="advancing"><td class="team left">🇲🇦 MAR</td><td>2</td><td>+1</td><td>3</td></tr>
+        <tr><td class="team left">🇸🇳 SEN</td><td>2</td><td>−1</td><td>3</td></tr>
+        <tr><td class="team left">🇶🇦 QAT</td><td>2</td><td>−4</td><td>0</td></tr>
+      </table>
+    </div>
+
+    <div class="group"><div class="gname">Group D <span class="matchday">MD2</span></div>
+      <table>
+        <tr><th class="left">Team</th><th>MP</th><th>GD</th><th>Pts</th></tr>
+        <tr class="advancing"><td class="team left">🇫🇷 FRA</td><td>2</td><td>+2</td><td>4</td></tr>
+        <tr class="advancing"><td class="team left">🇩🇰 DEN</td><td>2</td><td>+1</td><td>4</td></tr>
+        <tr><td class="team left">🇹🇳 TUN</td><td>2</td><td>−1</td><td>1</td></tr>
+        <tr><td class="team left">🇨🇷 CRC</td><td>2</td><td>−2</td><td>0</td></tr>
+      </table>
+    </div>
+
+    <div class="group"><div class="gname">Group E <span class="matchday">MD2</span></div>
+      <table>
+        <tr><th class="left">Team</th><th>MP</th><th>GD</th><th>Pts</th></tr>
+        <tr class="advancing"><td class="team left">🇪🇸 ESP</td><td>2</td><td>+6</td><td>6</td></tr>
+        <tr class="advancing"><td class="team left">🇯🇵 JPN</td><td>2</td><td>0</td><td>3</td></tr>
+        <tr><td class="team left">🇩🇪 GER</td><td>2</td><td>−1</td><td>3</td></tr>
+        <tr><td class="team left">🇨🇷 CRC</td><td>2</td><td>−5</td><td>0</td></tr>
+      </table>
+    </div>
+
+    <div class="group"><div class="gname">Group F <span class="matchday">MD1</span></div>
+      <table>
+        <tr><th class="left">Team</th><th>MP</th><th>GD</th><th>Pts</th></tr>
+        <tr class="advancing"><td class="team left">🇦🇷 ARG</td><td>1</td><td>+2</td><td>3</td></tr>
+        <tr class="advancing"><td class="team left">🇩🇰 DEN</td><td>1</td><td>0</td><td>1</td></tr>
+        <tr><td class="team left">🇸🇦 SAU</td><td>1</td><td>0</td><td>1</td></tr>
+        <tr><td class="team left">🇵🇱 POL</td><td>1</td><td>−2</td><td>0</td></tr>
+      </table>
+    </div>
+
+    <div class="group"><div class="gname">Group G <span class="matchday">MD1</span></div>
+      <table>
+        <tr><th class="left">Team</th><th>MP</th><th>GD</th><th>Pts</th></tr>
+        <tr class="advancing"><td class="team left">🇧🇷 BRA</td><td>1</td><td>+2</td><td>3</td></tr>
+        <tr class="advancing"><td class="team left">🇨🇭 SUI</td><td>1</td><td>+1</td><td>3</td></tr>
+        <tr><td class="team left">🇷🇸 SRB</td><td>1</td><td>−1</td><td>0</td></tr>
+        <tr><td class="team left">🇨🇲 CMR</td><td>1</td><td>−2</td><td>0</td></tr>
+      </table>
+    </div>
+
+    <div class="group"><div class="gname">Group H <span class="matchday">MD2</span></div>
+      <table>
+        <tr><th class="left">Team</th><th>MP</th><th>GD</th><th>Pts</th></tr>
+        <tr class="advancing"><td class="team left">🇵🇹 POR</td><td>2</td><td>+3</td><td>6</td></tr>
+        <tr class="advancing"><td class="team left">🇺🇾 URU</td><td>2</td><td>0</td><td>3</td></tr>
+        <tr><td class="team left">🇬🇭 GHA</td><td>2</td><td>−1</td><td>3</td></tr>
+        <tr><td class="team left">🇰🇷 KOR</td><td>2</td><td>−2</td><td>0</td></tr>
+      </table>
+    </div>
+
+    <div class="group"><div class="gname">Group I <span class="matchday">MD2</span></div>
+      <table>
+        <tr><th class="left">Team</th><th>MP</th><th>GD</th><th>Pts</th></tr>
+        <tr class="advancing"><td class="team left">🇧🇪 BEL</td><td>2</td><td>+2</td><td>4</td></tr>
+        <tr class="advancing"><td class="team left">🇭🇷 CRO</td><td>2</td><td>+1</td><td>4</td></tr>
+        <tr><td class="team left">🇲🇦 MAR</td><td>2</td><td>−1</td><td>1</td></tr>
+        <tr><td class="team left">🇨🇦 CAN</td><td>2</td><td>−2</td><td>0</td></tr>
+      </table>
+    </div>
+
+    <div class="group"><div class="gname">Group J <span class="matchday">MD2</span></div>
+      <table>
+        <tr><th class="left">Team</th><th>MP</th><th>GD</th><th>Pts</th></tr>
+        <tr class="advancing"><td class="team left">🇮🇹 ITA</td><td>2</td><td>+4</td><td>6</td></tr>
+        <tr class="advancing"><td class="team left">🇳🇬 NGA</td><td>2</td><td>0</td><td>3</td></tr>
+        <tr><td class="team left">🇮🇸 ISL</td><td>2</td><td>−1</td><td>3</td></tr>
+        <tr><td class="team left">🇨🇷 CRC</td><td>2</td><td>−3</td><td>0</td></tr>
+      </table>
+    </div>
+
+    <div class="group"><div class="gname">Group K <span class="matchday">MD2</span></div>
+      <table>
+        <tr><th class="left">Team</th><th>MP</th><th>GD</th><th>Pts</th></tr>
+        <tr class="advancing"><td class="team left">🇨🇴 COL</td><td>2</td><td>+3</td><td>6</td></tr>
+        <tr class="advancing"><td class="team left">🇪🇬 EGY</td><td>2</td><td>0</td><td>3</td></tr>
+        <tr><td class="team left">🇳🇴 NOR</td><td>2</td><td>−1</td><td>3</td></tr>
+        <tr><td class="team left">🇨🇩 COD</td><td>2</td><td>−2</td><td>0</td></tr>
+      </table>
+    </div>
+
+    <div class="group"><div class="gname">Group L <span class="matchday">MD2</span></div>
+      <table>
+        <tr><th class="left">Team</th><th>MP</th><th>GD</th><th>Pts</th></tr>
+        <tr class="advancing"><td class="team left">🏴 ENG</td><td>2</td><td>+5</td><td>6</td></tr>
+        <tr class="advancing"><td class="team left">🇪🇨 ECU</td><td>2</td><td>+1</td><td>4</td></tr>
+        <tr><td class="team left">🇮🇶 IRQ</td><td>2</td><td>−2</td><td>1</td></tr>
+        <tr><td class="team left">🇵🇦 PAN</td><td>2</td><td>−4</td><td>0</td></tr>
+      </table>
+    </div>
+
+  </div>
+
+  <div class="footnote">Green dot marks the top 2 in each group, currently auto-advancing to round of 32. Third-place playoff line shown on the knockout view.</div>
+
+</div>
+</body>
+</html>

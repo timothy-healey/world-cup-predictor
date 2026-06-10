@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bracket mockup · World Cup Predictor</title>
+<meta name="viewport" content="width=1280">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --c-primary:#DD2680; --c-secondary:#F0BA2C;
+    --c-bg:#FAF5EB; --c-surface:#FFFCF5; --c-sunk:#F3EBD8;
+    --c-ink:#1B0E12; --c-ink-2:#4A3940; --c-ink-3:#847078; --c-ink-4:#BCB0B5;
+    --c-correct:#1B7E55; --c-wrong:#C73848; --c-pending:#4A6BD1;
+    --c-border:rgba(27,14,18,0.10); --c-border-dashed:rgba(27,14,18,0.18);
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--c-bg); font-family:'Inter',system-ui,sans-serif; color:var(--c-ink); }
+  .wrap { padding:28px 28px 40px; }
+  .label { text-transform:uppercase; letter-spacing:0.08em; font-size:11px;
+    font-weight:600; color:var(--c-primary); margin-bottom:18px; }
+  .grid { display:grid;
+    grid-template-columns: 1.05fr 0.95fr 0.95fr 0.95fr 0.95fr; gap:14px; align-items:stretch; }
+  .col { display:flex; flex-direction:column; justify-content:space-around; min-height:780px; }
+  .col-head { font-family:'Big Shoulders Display',sans-serif; font-weight:800;
+    font-size:13px; color:var(--c-ink); text-transform:uppercase; letter-spacing:0.04em;
+    text-align:center; margin-bottom:8px; }
+  .match { background:var(--c-surface); border:1px solid var(--c-border); border-radius:8px;
+    padding:10px 12px; font-size:12px; }
+  .match.final { background:#FBE9C8; border-color:var(--c-secondary); }
+  .row { display:flex; justify-content:space-between; align-items:center; padding:3px 0; }
+  .team { color:var(--c-ink-2); font-weight:500; font-family:'Big Shoulders Display',sans-serif;
+    font-size:14px; text-transform:uppercase; letter-spacing:0.02em; }
+  .team.winner { color:var(--c-ink); font-weight:800; }
+  .team.loser  { color:var(--c-ink-4); font-weight:500; text-decoration:line-through; }
+  .team.tbd    { color:var(--c-ink-4); font-style:italic; font-family:'Inter',sans-serif;
+    font-size:12px; letter-spacing:0; text-transform:none; font-weight:500; }
+  .score { font-family:'Big Shoulders Display',sans-serif; font-weight:800; font-size:16px;
+    color:var(--c-ink); min-width:18px; text-align:right; }
+  .meta { font-size:10px; color:var(--c-ink-3); font-family:'Inter',sans-serif; }
+  .pred { font-size:10px; color:var(--c-ink-2); margin-top:6px; padding-top:6px;
+    border-top:1px dashed var(--c-border-dashed); display:flex; align-items:center; gap:5px; }
+  .pred .ok { color:var(--c-correct); }
+  .pred .bad { color:var(--c-wrong); }
+  .pred .pending { color:var(--c-ink-3); font-style:italic; }
+  .ic { width:11px; height:11px; stroke:currentColor; fill:none; stroke-width:2.4;
+    stroke-linecap:round; stroke-linejoin:round; vertical-align:middle; }
+  .footnote { font-size:11px; color:var(--c-ink-3); text-align:center; margin-top:20px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="ic-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+    <symbol id="ic-x" viewBox="0 0 24 24"><path d="M18 6 L6 18 M6 6 L18 18"/></symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <div class="label">Knockout bracket · round of 32 in progress</div>
+
+  <div class="grid" style="min-height:auto;margin-bottom:8px">
+    <div class="col-head">Round of 32</div>
+    <div class="col-head">Round of 16</div>
+    <div class="col-head">Quarter-final</div>
+    <div class="col-head">Semi-final</div>
+    <div class="col-head">Final</div>
+  </div>
+
+  <div class="grid">
+
+    <div class="col">
+      <div class="match"><div class="row"><span class="team winner">🇲🇽 MEX</span><span class="score">2</span></div><div class="row"><span class="team loser">🇩🇰 DEN</span><span class="score">0</span></div><div class="pred"><svg class="ic ok"><use href="#ic-check"/></svg>Predicted MEX 2-1 · winner correct</div></div>
+      <div class="match"><div class="row"><span class="team winner">🇳🇱 NED</span><span class="score">3</span></div><div class="row"><span class="team loser">🇵🇱 POL</span><span class="score">1</span></div><div class="pred"><svg class="ic ok"><use href="#ic-check"/></svg>Predicted NED 2-0 · winner correct</div></div>
+      <div class="match"><div class="row"><span class="team">🇺🇸 USA</span><span class="meta">Thu 8pm</span></div><div class="row"><span class="team">🇪🇨 ECU</span><span></span></div><div class="pred"><span class="pending">Predicted USA 1-0 · pending</span></div></div>
+      <div class="match"><div class="row"><span class="team">🇧🇷 BRA</span><span class="meta">Fri 5pm</span></div><div class="row"><span class="team">🇨🇭 SUI</span><span></span></div><div class="pred"><span class="pending">No prediction yet</span></div></div>
+      <div class="match"><div class="row"><span class="team winner">🇫🇷 FRA</span><span class="score">2</span></div><div class="row"><span class="team loser">🇲🇦 MAR</span><span class="score">1</span></div><div class="pred"><svg class="ic ok"><use href="#ic-check"/></svg>Predicted FRA 2-1 · exact</div></div>
+      <div class="match"><div class="row"><span class="team winner">🇮🇹 ITA</span><span class="score">1</span></div><div class="row"><span class="team loser">🇳🇬 NGA</span><span class="score">0</span></div><div class="pred"><svg class="ic ok"><use href="#ic-check"/></svg>Predicted ITA 2-0 · winner correct</div></div>
+      <div class="match"><div class="row"><span class="team">🇵🇹 POR</span><span class="meta">Fri 9pm</span></div><div class="row"><span class="team">🇸🇳 SEN</span><span></span></div><div class="pred"><span class="pending">Predicted POR 2-1 · pending</span></div></div>
+      <div class="match"><div class="row"><span class="team">🏴 ENG</span><span class="meta">Sat 6pm</span></div><div class="row"><span class="team">🇮🇶 IRQ</span><span></span></div><div class="pred"><span class="pending">Predicted ENG 3-0 · pending</span></div></div>
+      <div class="match"><div class="row"><span class="team winner">🇪🇸 ESP</span><span class="score">3</span></div><div class="row"><span class="team loser">🇬🇭 GHA</span><span class="score">0</span></div><div class="pred"><svg class="ic ok"><use href="#ic-check"/></svg>Predicted ESP 2-0 · winner correct</div></div>
+      <div class="match"><div class="row"><span class="team winner">🇧🇪 BEL</span><span class="score">2</span></div><div class="row"><span class="team loser">🇪🇨 ECU</span><span class="score">1</span></div><div class="pred"><svg class="ic bad"><use href="#ic-x"/></svg>Predicted ECU 1-0 · wrong</div></div>
+      <div class="match"><div class="row"><span class="team">🇦🇷 ARG</span><span class="meta">Sat 9pm</span></div><div class="row"><span class="team">🇺🇾 URU</span><span></span></div><div class="pred"><span class="pending">Predicted ARG 2-1 · pending</span></div></div>
+      <div class="match"><div class="row"><span class="team winner">🇩🇪 GER</span><span class="score">2</span></div><div class="row"><span class="team loser">🇲🇦 MAR</span><span class="score">1</span></div><div class="pred"><svg class="ic ok"><use href="#ic-check"/></svg>Predicted GER 2-1 · exact</div></div>
+      <div class="match"><div class="row"><span class="team">🇨🇴 COL</span><span class="meta">Sun 3pm</span></div><div class="row"><span class="team">🇭🇷 CRO</span><span></span></div><div class="pred"><span class="pending">Predicted CRO 1-1 (pens) · pending</span></div></div>
+      <div class="match"><div class="row"><span class="team winner">🇨🇦 CAN</span><span class="score">1</span></div><div class="row"><span class="team loser">🇸🇪 SWE</span><span class="score">0</span></div><div class="pred"><svg class="ic bad"><use href="#ic-x"/></svg>Predicted SWE 2-0 · wrong</div></div>
+      <div class="match"><div class="row"><span class="team">🇯🇵 JPN</span><span class="meta">Sun 7pm</span></div><div class="row"><span class="team">🇳🇬 NGA</span><span></span></div><div class="pred"><span class="pending">Predicted JPN 1-0 · pending</span></div></div>
+      <div class="match"><div class="row"><span class="team">🇵🇹 POR</span><span class="meta">Mon 4pm</span></div><div class="row"><span class="team">🇨🇭 SUI</span><span></span></div><div class="pred"><span class="pending">No prediction yet</span></div></div>
+    </div>
+
+    <div class="col">
+      <div class="match"><div class="row"><span class="team winner">🇲🇽 MEX</span><span class="meta">vs</span></div><div class="row"><span class="team winner">🇳🇱 NED</span><span></span></div><div class="pred"><span class="pending">Predicted NED 2-1 · pending</span></div></div>
+      <div class="match"><div class="row"><span class="team tbd">USA / ECU</span><span class="meta">vs</span></div><div class="row"><span class="team tbd">BRA / SUI</span><span></span></div><div class="pred"><span class="pending">No prediction yet</span></div></div>
+      <div class="match"><div class="row"><span class="team winner">🇫🇷 FRA</span><span class="meta">vs</span></div><div class="row"><span class="team winner">🇮🇹 ITA</span><span></span></div><div class="pred"><span class="pending">Predicted FRA 1-0 · pending</span></div></div>
+      <div class="match"><div class="row"><span class="team tbd">POR / SEN</span><span class="meta">vs</span></div><div class="row"><span class="team tbd">ENG / IRQ</span><span></span></div><div class="pred"><span class="pending">No prediction yet</span></div></div>
+      <div class="match"><div class="row"><span class="team winner">🇪🇸 ESP</span><span class="meta">vs</span></div><div class="row"><span class="team winner">🇧🇪 BEL</span><span></span></div><div class="pred"><span class="pending">Predicted ESP 2-1 · pending</span></div></div>
+      <div class="match"><div class="row"><span class="team tbd">ARG / URU</span><span class="meta">vs</span></div><div class="row"><span class="team winner">🇩🇪 GER</span><span></span></div><div class="pred"><span class="pending">No prediction yet</span></div></div>
+      <div class="match"><div class="row"><span class="team tbd">COL / CRO</span><span class="meta">vs</span></div><div class="row"><span class="team winner">🇨🇦 CAN</span><span></span></div><div class="pred"><span class="pending">No prediction yet</span></div></div>
+      <div class="match"><div class="row"><span class="team tbd">JPN / NGA</span><span class="meta">vs</span></div><div class="row"><span class="team tbd">POR / SUI</span><span></span></div><div class="pred"><span class="pending">No prediction yet</span></div></div>
+    </div>
+
+    <div class="col">
+      <div class="match"><div class="row"><span class="team tbd">TBD</span><span class="meta">vs</span></div><div class="row"><span class="team tbd">TBD</span><span></span></div></div>
+      <div class="match"><div class="row"><span class="team tbd">TBD</span><span class="meta">vs</span></div><div class="row"><span class="team tbd">TBD</span><span></span></div></div>
+      <div class="match"><div class="row"><span class="team tbd">TBD</span><span class="meta">vs</span></div><div class="row"><span class="team tbd">TBD</span><span></span></div></div>
+      <div class="match"><div class="row"><span class="team tbd">TBD</span><span class="meta">vs</span></div><div class="row"><span class="team tbd">TBD</span><span></span></div></div>
+    </div>
+
+    <div class="col">
+      <div class="match"><div class="row"><span class="team tbd">TBD</span><span class="meta">vs</span></div><div class="row"><span class="team tbd">TBD</span><span></span></div></div>
+      <div class="match"><div class="row"><span class="team tbd">TBD</span><span class="meta">vs</span></div><div class="row"><span class="team tbd">TBD</span><span></span></div></div>
+    </div>
+
+    <div class="col">
+      <div class="match final"><div class="row"><span class="team tbd">TBD</span><span class="meta">Jul 19</span></div><div class="row"><span class="team tbd">TBD</span><span></span></div><div class="pred"><span class="pending">Final · MetLife Stadium</span></div></div>
+    </div>
+
+  </div>
+
+  <div class="footnote">Third-place playoff (loser SF1 vs loser SF2) appears as a separate card below the bracket.</div>
+</div>
+</body>
+</html>

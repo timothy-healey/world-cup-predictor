@@ -1,0 +1,5 @@
+bin/
+*.db
+*.db-*
+.env
+testdata/wcp_test.db*

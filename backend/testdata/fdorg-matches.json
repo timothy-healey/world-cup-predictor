@@ -1,0 +1,14 @@
+{
+  "matches": [
+    {
+      "id": 12345,
+      "utcDate": "2026-06-25T11:00:00Z",
+      "status": "SCHEDULED",
+      "stage": "GROUP_STAGE",
+      "group": "Group F",
+      "homeTeam": {"id": 999, "tla": "ARG"},
+      "awayTeam": {"id": 998, "tla": "SAU"},
+      "venue": "MetLife Stadium"
+    }
+  ]
+}
