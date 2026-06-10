@@ -1,9 +1,11 @@
 package fetchers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os/exec"
 	"strings"
 	"time"
@@ -19,12 +21,15 @@ func runJSON[T any](ctx context.Context, d claudeBin, prompt string) (T, error) 
 	timed, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(timed, d.BinPathRaw(), "-p", prompt)
-	out, err := cmd.Output()
-	if err != nil {
-		return zero, err
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return zero, fmt.Errorf("claude invoke: %w (stderr: %s)", err, strings.TrimSpace(stderr.String()))
 	}
-	start := strings.Index(string(out), "{")
-	end := strings.LastIndex(string(out), "}")
+	out := stdout.Bytes()
+	start := bytes.IndexByte(out, '{')
+	end := bytes.LastIndexByte(out, '}')
 	if start < 0 || end <= start {
 		return zero, errors.New("malformed json")
 	}
