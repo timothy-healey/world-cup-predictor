@@ -152,27 +152,47 @@ world-cup-predictor/
 
 All API keys and per-user settings live in a single gitignored `.env` file at the repo root. A committed `.env.example` documents every required variable. The Go binary loads `.env` at startup via `godotenv` (or equivalent) — anyone cloning the repo copies `.env.example` to `.env`, fills in their own credentials, and the tool runs against their accounts.
 
-Required environment variables:
+Environment variables fall into three tiers:
+
+**Required — tool refuses to start without these:**
 
 ```
-# External APIs
-THE_ODDS_API_KEY=...
-FOOTBALL_DATA_API_KEY=...
+FOOTBALL_DATA_API_KEY=...        # No fixtures or teams without this; bootstrap fails
+```
 
-# Email (Gmail SMTP)
+**Optional — feature is silently disabled with a startup warning if absent:**
+
+```
+THE_ODDS_API_KEY=...             # Missing → odds fetcher skipped on every run, confidence drops one level
+
+# Email (Gmail SMTP) — missing any of these disables email entirely
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=you@example.com
 SMTP_PASSWORD=...                # Gmail app password (16-char), not your account password
 NOTIFICATION_EMAIL_TO=you@example.com
+```
 
-# Optional overrides
-WCP_DB_PATH=./wcp.db             # default
-WCP_SERVE_PORT=8765              # default
+**Defaults — overrides only:**
+
+```
+WCP_DB_PATH=./wcp.db
+WCP_SERVE_PORT=8765
 WCP_CLAUDE_BIN=claude            # path to the claude CLI, default uses $PATH
 ```
 
-**Claude Code authentication is not managed by this repo.** The tool invokes the `claude` CLI as a subprocess, which uses whatever auth state is in `~/.claude/`. A new user who clones the repo must have Claude Code installed and have completed `claude` interactive login (or `claude login`) under their own account before `wcp predict` will work. The README documents this as a prerequisite.
+**Graceful degradation rule.** The tool checks env vars once at startup and logs one warning per missing optional feature, e.g.:
+
+```
+[warn] THE_ODDS_API_KEY not set — odds fetcher will be skipped
+[warn] SMTP_USER not set — email notifications disabled
+```
+
+At runtime, the affected fetcher or mailer becomes a no-op that returns `ok=false, error="not configured"`. This flows through the existing error-handling path: prediction still runs, confidence flag drops accordingly, dashboard still shows the prediction. No silent failures.
+
+**`wcp doctor`** surfaces config state explicitly — lists which optional features are enabled, which are degraded, and which required variables are missing. Useful first-run command after `cp .env.example .env`.
+
+**Claude Code authentication is not managed by this repo.** The tool invokes the `claude` CLI as a subprocess, which uses whatever auth state is in `~/.claude/`. A new user who clones the repo must have Claude Code installed and have completed `claude` interactive login (or `claude login`) under their own account before `wcp predict` will work. `wcp doctor` checks for the `claude` binary on PATH and reports if it's missing.
 
 **The Claude subscription itself is per-user.** The cost summary below assumes the user is on Claude Max; a new clone might run against an API key instead via a future config flag (see Open considerations).
 
@@ -315,6 +335,9 @@ Pipeline never silently fails. Each failure mode and its behaviour:
 | Claude returns malformed JSON | One retry with corrective prompt. If still bad, no prediction row is written. Log the raw response. Email subject `[failed]` with the parse error. |
 | Claude rate-limited | Exponential backoff up to 3 attempts. If still failing, no prediction row is written. Email instructs manual retry via `wcp predict --match <id>`. |
 | SMTP send fails | Prediction is already stored. Log SMTP error. Dashboard still shows it. Email failures don't roll back predictions. |
+| SMTP env vars missing | One-time startup warning. Mailer is a no-op for the session. Predictions still write to DB and surface on dashboard. |
+| `THE_ODDS_API_KEY` missing | One-time startup warning. Odds fetcher returns `ok=false, error="not configured"` on every run. Confidence drops one level (same path as API failure). |
+| `FOOTBALL_DATA_API_KEY` missing | Tool refuses to start. Error message points to `.env.example`. |
 | `launchd` agent missing for a match | `wcp doctor` audits this: lists matches without a loaded agent. Bootstrap re-run fixes it. |
 | Fixture moved | `wcp bootstrap --refresh` re-pulls fixtures and rewrites any `.plist` whose kickoff changed. Idempotent. |
 
