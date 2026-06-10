@@ -56,7 +56,10 @@ func Run(ctx context.Context, s *store.Store, c *fdorg.Client, agentsDir string)
 			t, err := time.Parse(time.RFC3339, m.UTCDate)
 			if err == nil {
 				binPath, _ := os.Executable()
-				_, _ = plist.WriteAgent(agentsDir, binPath, id, t)
+				path, err := plist.WriteAgent(agentsDir, binPath, id, t)
+				if err == nil {
+					_ = plist.LoadAgent(path) // best-effort; no-op on non-macOS
+				}
 			}
 		}
 	}
