@@ -1,11 +1,14 @@
 package fdorg
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -82,4 +85,97 @@ func TestClientReturnsErrorOnNon2xx(t *testing.T) {
 	_, err := c.GetTeams(t.Context())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "401")
+}
+
+// TestClientThrottlesOnLowQuota verifies that when the per-minute counter
+// reports 1 remaining, the client (a) records the observation into
+// LastRateLimit and (b) invokes its sleeper for the 60s throttle. We swap
+// in a no-op sleeper so the test runs instantly but still observes the call.
+func TestClientThrottlesOnLowQuota(t *testing.T) {
+	body, err := os.ReadFile("../../testdata/fdorg-teams.json")
+	require.NoError(t, err)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Requests-Available-Minute", "1")
+		w.WriteHeader(200)
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	var slept atomic.Int64
+	c := NewClient(srv.URL, "k")
+	c.sleeper = func(d time.Duration) { slept.Add(int64(d)) }
+
+	var buf bytes.Buffer
+	prev := SetWarnWriter(&buf)
+	defer SetWarnWriter(prev)
+
+	_, err = c.GetTeams(t.Context())
+	require.NoError(t, err)
+
+	rl := c.LastRateLimit()
+	require.Equal(t, 1, rl.RemainingMinute)
+	require.False(t, rl.LastUpdated.IsZero())
+	require.Equal(t, int64(60*time.Second), slept.Load(), "expected a 60s throttle sleep")
+	require.Contains(t, buf.String(), "1 req/min remaining")
+
+	// A SECOND call should still succeed (we don't assert sleep duration
+	// here — only that no fatal error came back).
+	_, err = c.GetTeams(t.Context())
+	require.NoError(t, err)
+}
+
+// TestClient429Retry checks that a 429 with Retry-After: 0 is retried once
+// and the second (successful) response is returned to the caller.
+func TestClient429Retry(t *testing.T) {
+	body, err := os.ReadFile("../../testdata/fdorg-teams.json")
+	require.NoError(t, err)
+
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := calls.Add(1)
+		if n == 1 {
+			w.Header().Set("Retry-After", "0")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"message":"rate limited"}`))
+			return
+		}
+		w.WriteHeader(200)
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "k")
+	c.sleeper = func(d time.Duration) {} // no-op
+
+	var buf bytes.Buffer
+	prev := SetWarnWriter(&buf)
+	defer SetWarnWriter(prev)
+
+	teams, err := c.GetTeams(t.Context())
+	require.NoError(t, err)
+	require.Len(t, teams, 2)
+	require.Equal(t, int32(2), calls.Load(), "expected exactly one retry")
+	require.Contains(t, buf.String(), "rate limited")
+}
+
+// TestClient429RetryFailsTwice verifies that if the retry ALSO fails the
+// error is returned (we don't retry a second time).
+func TestClient429RetryFailsTwice(t *testing.T) {
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.Header().Set("Retry-After", "0")
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte(`{"message":"still limited"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "k")
+	c.sleeper = func(d time.Duration) {}
+
+	_, err := c.GetTeams(t.Context())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "429")
+	require.Equal(t, int32(2), calls.Load(), "expected one retry, not more")
 }
