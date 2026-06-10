@@ -45,3 +45,43 @@ func TestTeamUpsertAndGet(t *testing.T) {
 	got, _ = s.GetTeam("ARG")
 	require.Equal(t, "Argentina (updated)", got.Name)
 }
+
+func TestMatchUpsertAndList(t *testing.T) {
+	s, _ := Open(filepath.Join(t.TempDir(), "wcp.db"))
+	defer s.Close()
+
+	require.NoError(t, s.UpsertTeam(Team{Code: "ARG", Name: "Argentina"}))
+	require.NoError(t, s.UpsertTeam(Team{Code: "SAU", Name: "Saudi Arabia"}))
+
+	m := Match{
+		ID: "2026-06-25-ARG-vs-SAU", HomeTeamCode: "ARG", AwayTeamCode: "SAU",
+		KickoffUTC: "2026-06-25T11:00:00Z", Stage: "group", Venue: "MetLife",
+		FixtureSrcID: "555",
+	}
+	require.NoError(t, s.UpsertMatch(m))
+
+	got, err := s.GetMatch(m.ID)
+	require.NoError(t, err)
+	require.Equal(t, "ARG", got.HomeTeamCode)
+
+	matches, err := s.ListMatches()
+	require.NoError(t, err)
+	require.Len(t, matches, 1)
+}
+
+func TestSetMatchResult(t *testing.T) {
+	s, _ := Open(filepath.Join(t.TempDir(), "wcp.db"))
+	defer s.Close()
+	require.NoError(t, s.UpsertTeam(Team{Code: "ARG", Name: "Argentina"}))
+	require.NoError(t, s.UpsertTeam(Team{Code: "SAU", Name: "Saudi Arabia"}))
+	require.NoError(t, s.UpsertMatch(Match{
+		ID: "m1", HomeTeamCode: "ARG", AwayTeamCode: "SAU",
+		KickoffUTC: "2026-06-25T11:00:00Z", Stage: "group",
+	}))
+
+	require.NoError(t, s.SetMatchResult("m1", 2, 0, "2026-06-25T13:00:00Z"))
+
+	got, _ := s.GetMatch("m1")
+	require.NotNil(t, got.HomeScore)
+	require.Equal(t, 2, *got.HomeScore)
+}
