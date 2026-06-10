@@ -6,8 +6,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/timhealey/world-cup-predictor/backend/internal/config"
+	"github.com/timhealey/world-cup-predictor/backend/internal/ratelimit"
 	"github.com/timhealey/world-cup-predictor/backend/internal/store"
 )
 
@@ -76,7 +78,35 @@ func Run(cfg *config.Config, s *store.Store, agentsDir string) string {
 		}
 	}
 
+	// Latest rate-limit observations recorded by the upstream HTTP clients.
+	// Both lines always render so users get a consistent layout even when
+	// no calls have been made yet this process.
+	b.WriteString("\nRate limits (last observed):\n")
+	fd := ratelimit.FDOrg()
+	if fd.LastUpdated.IsZero() || fd.RemainingMinute < 0 {
+		b.WriteString("  football-data.org: no observations yet\n")
+	} else {
+		b.WriteString(fmt.Sprintf("  football-data.org: %d req/min remaining (observed %s ago)\n",
+			fd.RemainingMinute, formatDuration(time.Since(fd.LastUpdated))))
+	}
+	od := ratelimit.Odds()
+	if od.LastUpdated.IsZero() || od.Remaining < 0 {
+		b.WriteString("  the-odds-api: no observations yet\n")
+	} else {
+		b.WriteString(fmt.Sprintf("  the-odds-api: %d of 500 remaining (observed %s ago)\n",
+			od.Remaining, formatDuration(time.Since(od.LastUpdated))))
+	}
+
 	return b.String()
+}
+
+// formatDuration renders a Duration with second precision (we don't care
+// about sub-second resolution here — observations are usually minutes old).
+func formatDuration(d time.Duration) string {
+	if d < time.Second {
+		return "just now"
+	}
+	return d.Truncate(time.Second).String()
 }
 
 type window struct{ now, in7Days string }
