@@ -8,6 +8,7 @@ build-frontend:
 	rm -rf internal/server/dist
 	mkdir -p internal/server/dist
 	cp -R $(FRONTEND)/dist/. internal/server/dist/
+	touch internal/server/dist/.gitkeep
 
 build: build-frontend
 	go build -o bin/wcp ./cmd/wcp
