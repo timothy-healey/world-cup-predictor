@@ -20,5 +20,5 @@ Reply with ONLY this JSON, no prose:
   "home_summary": "...",
   "away_summary": "..."
 }`, home, away)
-	return runJSON[NewsResult](ctx, d, prompt)
+	return runJSON[NewsResult](ctx, d, "news", prompt)
 }

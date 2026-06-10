@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/timhealey/world-cup-predictor/backend/internal/trace"
 )
 
 // claudeBin is the minimal interface the fetchers need from claudec.Driver.
@@ -16,7 +18,7 @@ type claudeBin interface {
 	BinPathRaw() string
 }
 
-func runJSON[T any](ctx context.Context, d claudeBin, prompt string) (T, error) {
+func runJSON[T any](ctx context.Context, d claudeBin, ns, prompt string) (T, error) {
 	var zero T
 	timed, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
@@ -24,16 +26,25 @@ func runJSON[T any](ctx context.Context, d claudeBin, prompt string) (T, error) 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return zero, fmt.Errorf("claude invoke: %w (stderr: %s)", err, strings.TrimSpace(stderr.String()))
+
+	trace.SubprocessStart(ns, len(prompt))
+	start := time.Now()
+	err := cmd.Run()
+	dur := time.Since(start)
+	if err != nil {
+		wrapped := fmt.Errorf("claude invoke: %w (stderr: %s)", err, strings.TrimSpace(stderr.String()))
+		trace.SubprocessError(ns, dur, wrapped)
+		return zero, wrapped
 	}
+	trace.SubprocessEnd(ns, dur, stdout.Len())
+
 	out := stdout.Bytes()
-	start := bytes.IndexByte(out, '{')
+	startIdx := bytes.IndexByte(out, '{')
 	end := bytes.LastIndexByte(out, '}')
-	if start < 0 || end <= start {
+	if startIdx < 0 || end <= startIdx {
 		return zero, errors.New("malformed json")
 	}
-	if err := json.Unmarshal(out[start:end+1], &zero); err != nil {
+	if err := json.Unmarshal(out[startIdx:end+1], &zero); err != nil {
 		return zero, err
 	}
 	return zero, nil
