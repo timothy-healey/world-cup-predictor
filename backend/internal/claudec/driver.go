@@ -95,3 +95,5 @@ func (d *Driver) invoke(ctx context.Context, prompt string) (Result, error) {
 }
 
 func (d *Driver) ModelID() string { return d.modelID }
+
+func (d *Driver) BinPathRaw() string { return d.binPath }
