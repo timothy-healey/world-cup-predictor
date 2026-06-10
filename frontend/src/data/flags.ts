@@ -12,9 +12,11 @@ const FLAGS: Record<string, string> = {
   KOR: "🇰🇷", MAR: "🇲🇦", MEX: "🇲🇽", NED: "🇳🇱", NGA: "🇳🇬",
   NOR: "🇳🇴", NZL: "🇳🇿", PAN: "🇵🇦", PAR: "🇵🇾", PER: "🇵🇪",
   POL: "🇵🇱", POR: "🇵🇹", QAT: "🇶🇦", RSA: "🇿🇦", SAU: "🇸🇦",
+  KSA: "🇸🇦", // football-data.org uses KSA for Saudi Arabia; SAU kept as a fallback
   SCO: "🏴󠁧󠁢󠁳󠁣󠁴󠁿", SEN: "🇸🇳", SLV: "🇸🇻", SRB: "🇷🇸", SUI: "🇨🇭",
   SWE: "🇸🇪", TUN: "🇹🇳", TUR: "🇹🇷", UAE: "🇦🇪", UKR: "🇺🇦",
-  URU: "🇺🇾", USA: "🇺🇸", UZB: "🇺🇿", VEN: "🇻🇪", WAL: "🏴󠁧󠁢󠁷󠁬󠁳󠁿",
+  URU: "🇺🇾", URY: "🇺🇾", // football-data.org uses URY for Uruguay; URU kept as a fallback
+  USA: "🇺🇸", UZB: "🇺🇿", VEN: "🇻🇪", WAL: "🏴󠁧󠁢󠁷󠁬󠁳󠁿",
 };
 
 export function flagFor(code: string): string {

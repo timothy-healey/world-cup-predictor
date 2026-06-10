@@ -148,7 +148,7 @@ Tests use fixture-based recordings under `backend/testdata/` for HTTP clients an
 ## Status
 
 - Backend: complete and verified end-to-end against the live 2026 World Cup opener.
-- Frontend: design system locked in ([DESIGN.md](DESIGN.md), [docs/design/mockups](docs/design/mockups)). Implementation pending — separate plan to be written next.
+- Frontend: complete. React + Vite + TypeScript dashboard embedded into the `wcp` binary via `//go:embed`; `wcp serve` mounts it at `http://127.0.0.1:8765`. Three tabs (Dashboard / Upcoming / Past results), Floodlight palette, polling against `predictions.json`, on-demand predict via `POST /api/predict?match=<id>`.
 
 ## Documents
 
