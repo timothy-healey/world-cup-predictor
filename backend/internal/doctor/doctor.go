@@ -10,6 +10,7 @@ import (
 
 	"github.com/timhealey/world-cup-predictor/backend/internal/config"
 	"github.com/timhealey/world-cup-predictor/backend/internal/ratelimit"
+	"github.com/timhealey/world-cup-predictor/backend/internal/server"
 	"github.com/timhealey/world-cup-predictor/backend/internal/store"
 )
 
@@ -95,6 +96,13 @@ func Run(cfg *config.Config, s *store.Store, agentsDir string) string {
 	} else {
 		b.WriteString(fmt.Sprintf("  the-odds-api: %d of 500 remaining (observed %s ago)\n",
 			od.Remaining, formatDuration(time.Since(od.LastUpdated))))
+	}
+
+	b.WriteString("\nFrontend bundle:\n")
+	if server.DistHasIndex() {
+		b.WriteString("  embedded frontend present\n")
+	} else {
+		b.WriteString("  [warn] frontend not embedded — run `make build` to bundle it\n")
 	}
 
 	return b.String()

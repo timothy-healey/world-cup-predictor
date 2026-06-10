@@ -56,6 +56,10 @@ func (s *Store) ExportJSON(path string) error {
 			ID: m.ID, HomeTeamCode: m.HomeTeamCode, AwayTeamCode: m.AwayTeamCode,
 			KickoffUTC: m.KickoffUTC, Stage: m.Stage, Venue: m.Venue,
 			HomeScore: m.HomeScore, AwayScore: m.AwayScore,
+			// Always emit an empty array (never JSON null) so the frontend can
+			// treat the field as a guaranteed []Prediction without null-guarding
+			// every consumer.
+			Predictions: []ExportPrediction{},
 		}
 		for _, p := range preds {
 			em.Predictions = append(em.Predictions, ExportPrediction{

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/timhealey/world-cup-predictor/backend/internal/bootstrap"
@@ -18,6 +19,7 @@ import (
 	"github.com/timhealey/world-cup-predictor/backend/internal/mailer"
 	"github.com/timhealey/world-cup-predictor/backend/internal/odds"
 	"github.com/timhealey/world-cup-predictor/backend/internal/predict"
+	"github.com/timhealey/world-cup-predictor/backend/internal/server"
 	"github.com/timhealey/world-cup-predictor/backend/internal/store"
 )
 
@@ -31,7 +33,7 @@ var commands = []command{
 	{name: "bootstrap", run: runBootstrap, help: "Fetch fixtures, write & load launchd plists"},
 	{name: "predict", run: runPredict, help: "Predict a specific match or the next upcoming one"},
 	{name: "results", run: runResults, help: "Pull recent finished match results"},
-	{name: "serve", run: stubRun, help: "Local HTTP server for the dashboard"},
+	{name: "serve", run: runServe, help: "Local HTTP server for the dashboard"},
 	{name: "doctor", run: runDoctor, help: "Self-audit and config check"},
 }
 
@@ -66,10 +68,6 @@ func run() error {
 	}
 	printUsage()
 	return fmt.Errorf("unknown command %q", name)
-}
-
-func stubRun(ctx context.Context, cfg *config.Config, args []string) error {
-	return errors.New("not implemented yet")
 }
 
 func runBootstrap(ctx context.Context, cfg *config.Config, args []string) error {
@@ -253,6 +251,38 @@ func runResults(ctx context.Context, cfg *config.Config, args []string) error {
 	exportPath := filepath.Join(filepath.Dir(cfg.DBPath), "predictions.json")
 	_ = s.ExportJSON(exportPath)
 	return nil
+}
+
+func runServe(ctx context.Context, cfg *config.Config, args []string) error {
+	defaultPort, err := strconv.Atoi(cfg.ServePort)
+	if err != nil || defaultPort == 0 {
+		defaultPort = 8765
+	}
+	fs := flag.NewFlagSet("serve", flag.ExitOnError)
+	port := fs.Int("port", defaultPort, "listen port")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	s, err := store.Open(cfg.DBPath)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	jsonPath := filepath.Join(filepath.Dir(cfg.DBPath), "predictions.json")
+	_ = server.EnsureJSONExists(s, jsonPath)
+
+	predictFn := func(ctx context.Context, matchID string) error {
+		return runPredict(ctx, cfg, []string{"-match", matchID})
+	}
+
+	srv := server.New(server.Config{
+		Port:     *port,
+		DBPath:   cfg.DBPath,
+		JSONPath: jsonPath,
+		Predict:  predictFn,
+	})
+	return srv.Start(ctx)
 }
 
 func pickNextMatch(s *store.Store) (string, error) {
