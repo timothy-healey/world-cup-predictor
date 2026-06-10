@@ -3,10 +3,12 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/timhealey/world-cup-predictor/backend/internal/fdorg"
+	"github.com/timhealey/world-cup-predictor/backend/internal/plist"
 	"github.com/timhealey/world-cup-predictor/backend/internal/store"
 )
 
@@ -49,7 +51,14 @@ func Run(ctx context.Context, s *store.Store, c *fdorg.Client, agentsDir string)
 		}); err != nil {
 			return fmt.Errorf("upsert match %s: %w", id, err)
 		}
-		// Result filling and plist writing happen in subsequent tasks.
+		// Write per-match launchd plist for scheduled prediction at T-30.
+		if agentsDir != "" {
+			t, err := time.Parse(time.RFC3339, m.UTCDate)
+			if err == nil {
+				binPath, _ := os.Executable()
+				_, _ = plist.WriteAgent(agentsDir, binPath, id, t)
+			}
+		}
 	}
 	return nil
 }

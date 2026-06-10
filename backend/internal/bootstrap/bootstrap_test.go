@@ -32,7 +32,8 @@ func TestRunPopulatesTeamsAndMatches(t *testing.T) {
 	defer s.Close()
 	c := fdorg.NewClient(srv.URL, "k")
 
-	require.NoError(t, Run(context.Background(), s, c, t.TempDir()))
+	agentsDir := t.TempDir()
+	require.NoError(t, Run(context.Background(), s, c, agentsDir))
 
 	teams, _ := s.ListTeams()
 	require.Len(t, teams, 2)
@@ -46,6 +47,12 @@ func TestRunPopulatesTeamsAndMatches(t *testing.T) {
 	require.Len(t, teamsAgain, 2)
 	matchesAgain, _ := s.ListMatches()
 	require.Len(t, matchesAgain, 1)
+
+	// Plist file should exist for the single match
+	entries, err := os.ReadDir(agentsDir)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	require.Contains(t, entries[0].Name(), "2026-06-25-ARG-vs-SAU")
 }
 
 func TestNormalizeStage(t *testing.T) {
