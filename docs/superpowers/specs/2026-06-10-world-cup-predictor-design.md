@@ -59,7 +59,7 @@ A personal tool that predicts the outcome of each 2026 FIFA World Cup match. For
 | **Per-match scheduled** | Exactly at T-30 for each match | One `launchd` LaunchAgent per match, configured via `StartCalendarInterval` for that match's T-30 time. If the laptop is awake → fires on time. If asleep → `launchd` runs it on wake (built-in catch-up). |
 | **On-demand CLI / dashboard** | `wcp predict next` or `wcp predict --match <id>`, or a button on the dashboard that POSTs to the local HTTP server | Manual invocation, no email send. |
 
-A `bootstrap` command runs once at tournament start: fetches all 104 fixtures, writes a `.plist` per match into `~/Library/LaunchAgents/com.wcp.<match-id>.plist`, loads them with `launchctl`. Idempotent: re-running updates moved fixtures.
+A `bootstrap` command runs once at tournament start: fetches the team list, fetches all 104 fixtures, writes a `.plist` per match into `~/Library/LaunchAgents/com.wcp.<match-id>.plist`, loads them with `launchctl`. Idempotent: re-running updates moved fixtures and refreshes team metadata.
 
 ### Confidence levels
 
@@ -103,7 +103,7 @@ The dashboard surfaces this prominently so the user knows how much to trust each
 
 Six small units, each with one job:
 
-1. **`bootstrap`** — fetches fixtures, generates and loads `launchd` `.plist` files. Idempotent.
+1. **`bootstrap`** — fetches teams, then fixtures; generates and loads `launchd` `.plist` files. Idempotent.
 2. **`fetchers/`** — four independent modules:
    - `odds.go` — calls The Odds API for a match; returns normalized decimal odds + implied probabilities.
    - `news.go` — invokes headless Claude with web search; returns a summary of relevant news for both teams over the last 14 days.
@@ -147,17 +147,28 @@ world-cup-predictor/
 
 ## Data model
 
-Two tables. Match results live as nullable columns on `matches` rather than a separate table — for 104 matches and one result each, a join is unjustified.
+Three tables: `teams`, `matches`, `predictions`. Teams are normalized so matches and predictions reference them by FIFA code, and team metadata (group, ranking, flag) has one home. Match results live as nullable columns on `matches` rather than a separate table — for 104 matches and one result each, a join is unjustified.
+
+Small-cardinality string columns whose values are defined in code (`confidence`, `trigger`) use `CHECK` constraints. Open-cardinality references (teams) use foreign keys to a real table.
 
 ```sql
+CREATE TABLE teams (
+  code              TEXT PRIMARY KEY,        -- FIFA 3-letter code: "ARG", "USA", "MEX"
+  name              TEXT NOT NULL,           -- "Argentina"
+  group_id          TEXT,                    -- "A".."L" during group stage, NULL after
+  flag_url          TEXT,                    -- for dashboard
+  fifa_ranking      INTEGER,                 -- snapshot at tournament start
+  fixture_src_id    TEXT                     -- football-data.org's team ID
+);
+
 CREATE TABLE matches (
-  id                 TEXT PRIMARY KEY,        -- e.g. "2026-06-11-MEX-vs-CAN"
-  home_team          TEXT NOT NULL,
-  away_team          TEXT NOT NULL,
-  kickoff_utc        TEXT NOT NULL,           -- ISO 8601
-  stage              TEXT NOT NULL,           -- "group-A", "round-of-16", etc.
+  id                 TEXT PRIMARY KEY,                       -- e.g. "2026-06-11-MEX-vs-CAN"
+  home_team_code     TEXT NOT NULL REFERENCES teams(code),
+  away_team_code     TEXT NOT NULL REFERENCES teams(code),
+  kickoff_utc        TEXT NOT NULL,                          -- ISO 8601
+  stage              TEXT NOT NULL,                          -- "group", "round-of-32", "round-of-16", "qf", "sf", "final", "third-place"
   venue              TEXT,
-  fixture_src_id     TEXT,                    -- football-data.org's ID
+  fixture_src_id     TEXT,                                   -- football-data.org's ID
   -- result columns, NULL until match completes
   home_score         INTEGER,
   away_score         INTEGER,
@@ -168,22 +179,29 @@ CREATE TABLE predictions (
   id                 INTEGER PRIMARY KEY AUTOINCREMENT,
   match_id           TEXT NOT NULL REFERENCES matches(id),
   created_at         TEXT NOT NULL,
-  trigger            TEXT NOT NULL,           -- "scheduled" | "on_demand"
-  confidence         TEXT NOT NULL,           -- "high" | "medium" | "low"
-  predicted_winner   TEXT NOT NULL,           -- home_team | away_team | "draw"
-  predicted_score    TEXT NOT NULL,           -- e.g. "2-1"
-  win_probability    REAL,                    -- 0.0-1.0
-  reasoning          TEXT NOT NULL,           -- markdown
-  inputs_json        TEXT NOT NULL,           -- raw fetcher outputs, for audit
-  rendered_prompt    TEXT NOT NULL,           -- full prompt sent to Claude
-  model_id           TEXT NOT NULL,           -- e.g. "claude-opus-4-7"
-  prompt_version     TEXT NOT NULL            -- git SHA of prompts/predict.md at run time
+  trigger            TEXT NOT NULL CHECK (trigger IN ('scheduled', 'on_demand')),
+  confidence         TEXT NOT NULL CHECK (confidence IN ('high', 'medium', 'low')),
+  predicted_winner   TEXT NOT NULL,                          -- a teams.code value, or the literal "draw"
+  predicted_score    TEXT NOT NULL,                          -- e.g. "2-1"
+  win_probability    REAL,                                   -- 0.0-1.0
+  reasoning          TEXT NOT NULL,                          -- markdown
+  inputs_json        TEXT NOT NULL,                          -- raw fetcher outputs, for audit
+  rendered_prompt    TEXT NOT NULL,                          -- full prompt sent to Claude
+  model_id           TEXT NOT NULL,                          -- e.g. "claude-opus-4-7"
+  prompt_version     TEXT NOT NULL                           -- git SHA of prompts/predict.md at run time
 );
 ```
 
+Notes:
+
+- **`predicted_winner` accepts a team code OR the literal string `"draw"`.** `"draw"` is an out-of-band sentinel — no FIFA team code is `draw`. Application code validates this on insert.
+- **`teams.group_id` is nullable** so the same row can describe a team in both the group stage (group set) and knockout stage (group cleared to NULL after group concludes). Tournament context queries that need "what group was Argentina in?" can recover it from the match-stage history if ever needed.
+- **Bootstrap populates `teams`** before `matches`. football-data.org returns teams as part of the competition feed; the bootstrap fetches teams once, then fixtures.
+- **`predictions.predicted_winner`** is not a hard FK because of the `"draw"` sentinel, but the application validates that non-draw values exist in `teams`.
+
 Multiple predictions per match are allowed: if a `medium`-confidence prediction was made overnight and the user re-runs after waking, a second `high`-confidence row gets written. The dashboard shows the latest, but history is preserved.
 
-`results` arrive via a separate `fetch_results` job that runs daily at a fixed time (a single `launchd` agent) and upserts final scores into the `matches` table from football-data.org's `/matches?status=FINISHED&competition=WC` endpoint.
+Match results arrive via a separate `fetch_results` job that runs daily (a single `launchd` agent) and upserts final scores into the `matches` table from football-data.org's `/matches?status=FINISHED&competition=WC` endpoint.
 
 ## Prediction flow (single match)
 
