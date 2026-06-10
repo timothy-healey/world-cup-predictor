@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { ExportPayload, Match } from "../types/api";
 import { PredictionCard } from "../components/PredictionCard";
 import { stageLabel } from "../lib/stage";
+import { buildTeamNameLookup } from "../lib/teams";
 
 interface Props {
   data: ExportPayload;
@@ -20,6 +21,8 @@ export function Upcoming({ data, onPredict, predictDisabled }: Props) {
 
   const teamGroup: Record<string, string> = {};
   for (const t of data.teams) teamGroup[t.code] = t.group_id;
+
+  const teamName = useMemo(() => buildTeamNameLookup(data.teams), [data.teams]);
 
   const filtered: Match[] = useMemo(() => {
     const now = new Date();
@@ -91,6 +94,7 @@ export function Upcoming({ data, onPredict, predictDisabled }: Props) {
           <PredictionCard
             key={m.id}
             match={m}
+            teamName={teamName}
             groupLabel={
               teamGroup[m.home_team_code]
                 ? `Group ${teamGroup[m.home_team_code]} · ${stageLabel(m.stage)}`
