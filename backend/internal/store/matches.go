@@ -3,16 +3,16 @@ package store
 import "database/sql"
 
 type Match struct {
-	ID            string
-	HomeTeamCode  string
-	AwayTeamCode  string
-	KickoffUTC    string
-	Stage         string
-	Venue         string
-	FixtureSrcID  string
-	HomeScore     *int
-	AwayScore     *int
-	ResultFetched string
+	ID            string `json:"id"`
+	HomeTeamCode  string `json:"home_team_code"`
+	AwayTeamCode  string `json:"away_team_code"`
+	KickoffUTC    string `json:"kickoff_utc"`
+	Stage         string `json:"stage"`
+	Venue         string `json:"venue"`
+	FixtureSrcID  string `json:"fixture_src_id"`
+	HomeScore     *int   `json:"home_score"`
+	AwayScore     *int   `json:"away_score"`
+	ResultFetched string `json:"result_fetched_at"`
 }
 
 func (s *Store) UpsertMatch(m Match) error {

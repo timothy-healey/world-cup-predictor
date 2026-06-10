@@ -3,14 +3,14 @@ package store
 import "database/sql"
 
 type Team struct {
-	Code              string
-	Name              string
-	GroupID           string
-	FlagURL           string
-	FIFARanking       int
-	ManagerName       string
-	PreTournamentForm string // JSON
-	FixtureSrcID      string
+	Code              string `json:"code"`
+	Name              string `json:"name"`
+	GroupID           string `json:"group_id"`
+	FlagURL           string `json:"flag_url"`
+	FIFARanking       int    `json:"fifa_ranking"`
+	ManagerName       string `json:"manager_name"`
+	PreTournamentForm string `json:"pre_tournament_form"` // JSON-encoded array of last 5 matches
+	FixtureSrcID      string `json:"fixture_src_id"`
 }
 
 func (s *Store) UpsertTeam(t Team) error {

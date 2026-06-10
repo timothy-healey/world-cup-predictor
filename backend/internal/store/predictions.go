@@ -3,19 +3,19 @@ package store
 import "database/sql"
 
 type Prediction struct {
-	ID              int64
-	MatchID         string
-	CreatedAt       string
-	Trigger         string // "scheduled" | "on_demand"
-	Confidence      string // "high" | "medium" | "low"
-	PredictedWinner string // team code or "draw"
-	PredictedScore  string // e.g. "2-1"
-	WinProbability  float64
-	Reasoning       string
-	InputsJSON      string
-	RenderedPrompt  string
-	ModelID         string
-	PromptVersion   string
+	ID              int64   `json:"id"`
+	MatchID         string  `json:"match_id"`
+	CreatedAt       string  `json:"created_at"`
+	Trigger         string  `json:"trigger"`          // "scheduled" | "on_demand"
+	Confidence      string  `json:"confidence"`       // "high" | "medium" | "low"
+	PredictedWinner string  `json:"predicted_winner"` // team code or "draw"
+	PredictedScore  string  `json:"predicted_score"`  // e.g. "2-1"
+	WinProbability  float64 `json:"win_probability"`
+	Reasoning       string  `json:"reasoning"`
+	InputsJSON      string  `json:"inputs_json"`
+	RenderedPrompt  string  `json:"rendered_prompt"`
+	ModelID         string  `json:"model_id"`
+	PromptVersion   string  `json:"prompt_version"`
 }
 
 func (s *Store) InsertPrediction(p Prediction) (int64, error) {
