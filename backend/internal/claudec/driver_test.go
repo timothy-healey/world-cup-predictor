@@ -76,10 +76,11 @@ EOF
 	require.Contains(t, out, "[wcp:predict] ✓ ok")
 }
 
-func TestPredictEmitsWirelogErrorOnMalformedJSON(t *testing.T) {
+func TestPredictEmitsOnlySuccessWirelogOnMalformedJSON(t *testing.T) {
 	tmp := t.TempDir()
 	fake := filepath.Join(tmp, "claude")
-	// Always emit garbage so both the initial invoke and the retry fail.
+	// Always emit garbage so both the initial invoke and the retry fail JSON
+	// parsing — but the subprocess itself exits 0 each time.
 	require.NoError(t, os.WriteFile(fake, []byte(`#!/bin/sh
 echo "not json at all"
 `), 0o755))
@@ -93,8 +94,11 @@ echo "not json at all"
 	require.Error(t, err)
 
 	out := buf.String()
-	// Two invocations happen (initial + retry); we should see at least two
-	// start lines and at least one error line for the malformed JSON.
+	// Two invocations happen (initial + retry); both subprocesses exit 0, so
+	// we expect two start lines and two ✓ ok lines. JSON parse failure is an
+	// application-layer concern (surfaced by the Recorder summary, not here),
+	// so no ✗ failed wirelog should be emitted by the subprocess driver.
 	require.GreaterOrEqual(t, strings.Count(out, "[wcp:predict] → claude -p"), 2)
-	require.Contains(t, out, "[wcp:predict] ✗ failed after")
+	require.GreaterOrEqual(t, strings.Count(out, "[wcp:predict] ✓ ok"), 2)
+	require.NotContains(t, out, "[wcp:predict] ✗ failed after")
 }

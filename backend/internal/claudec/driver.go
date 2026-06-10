@@ -90,19 +90,20 @@ func (d *Driver) invoke(ctx context.Context, prompt string) (Result, error) {
 
 	out := stdout.Bytes()
 	// Find JSON in the output (claude may emit prefix/suffix text).
+	// Parse failures here are application-layer failures of a successful
+	// subprocess exit — they are NOT subprocess-level errors. SubprocessEnd
+	// has already been emitted above; the Recorder summary surfaces the
+	// fetcher-slot failure.
 	startIdx := bytes.IndexByte(out, '{')
 	end := bytes.LastIndexByte(out, '}')
 	if startIdx < 0 || end <= startIdx {
-		trace.SubprocessError("predict", dur, errMalformedJSON)
 		return Result{}, errMalformedJSON
 	}
 	var r Result
 	if err := json.Unmarshal(out[startIdx:end+1], &r); err != nil {
-		trace.SubprocessError("predict", dur, errMalformedJSON)
 		return Result{}, errMalformedJSON
 	}
 	if r.Winner == "" || r.PredictedScore == "" {
-		trace.SubprocessError("predict", dur, errMalformedJSON)
 		return Result{}, errMalformedJSON
 	}
 	return r, nil
