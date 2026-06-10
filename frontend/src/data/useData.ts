@@ -18,9 +18,11 @@ interface DataState {
 function filterProductionVariants(payload: ExportPayload): ExportPayload {
   return {
     ...payload,
-    matches: payload.matches.map((m) => ({
+    matches: (payload.matches ?? []).map((m) => ({
       ...m,
-      predictions: m.predictions.filter((p) => p.variant === "full"),
+      // Backend should emit `[]` (see store/export.go), but be defensive against
+      // an old JSON on disk where matches with no predictions serialized as null.
+      predictions: (m.predictions ?? []).filter((p) => p.variant === "full"),
     })),
   };
 }
