@@ -13,6 +13,15 @@ type Team struct {
 	FixtureSrcID      string `json:"fixture_src_id"`
 }
 
+// UpdateTeamGroup sets group_id for an existing team. Used by bootstrap to
+// backfill the group from match data (football-data.org's /teams endpoint
+// doesn't include group info — it lives on each /matches record as `group`).
+// No-op if the team doesn't exist.
+func (s *Store) UpdateTeamGroup(code, groupID string) error {
+	_, err := s.db.Exec(`UPDATE teams SET group_id = ? WHERE code = ?`, groupID, code)
+	return err
+}
+
 func (s *Store) UpsertTeam(t Team) error {
 	_, err := s.db.Exec(
 		`INSERT INTO teams (code, name, group_id, flag_url, fifa_ranking, manager_name, pre_tournament_form, fixture_src_id)

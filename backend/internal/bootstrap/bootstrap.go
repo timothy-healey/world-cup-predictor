@@ -72,6 +72,16 @@ func Run(ctx context.Context, s *store.Store, c *fdorg.Client, agentsDir, workDi
 		}); err != nil {
 			return fmt.Errorf("upsert match %s: %w", id, err)
 		}
+		// Backfill group_id on each team from the match data: fdorg's /teams
+		// endpoint doesn't return groups, but each group-stage match carries
+		// the group letter on `match.group`. Idempotent — last write wins,
+		// but every group-stage match for a given team yields the same group.
+		if stage == "group" {
+			if g := normalizeGroupID(m.Group); g != "" {
+				_ = s.UpdateTeamGroup(homeCode, g)
+				_ = s.UpdateTeamGroup(awayCode, g)
+			}
+		}
 		// Write per-match launchd plist for scheduled prediction at T-30.
 		if agentsDir != "" {
 			t, err := time.Parse(time.RFC3339, m.UTCDate)
@@ -120,6 +130,21 @@ func matchID(m fdorg.Match, homeCode, awayCode string) (string, error) {
 		return "", fmt.Errorf("parse kickoff %q: %w", m.UTCDate, err)
 	}
 	return fmt.Sprintf("%s-%s-vs-%s", t.UTC().Format("2006-01-02"), homeCode, awayCode), nil
+}
+
+// normalizeGroupID extracts the bare group letter from the various shapes
+// football-data.org returns on a match's `group` field. Real responses use
+// "Group F"; older fixtures / future schema changes might use "GROUP_F" or
+// already-normalized letters. Returns "" if input is empty.
+func normalizeGroupID(raw string) string {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return ""
+	}
+	upper := strings.ToUpper(s)
+	upper = strings.TrimPrefix(upper, "GROUP_")
+	upper = strings.TrimPrefix(upper, "GROUP ")
+	return strings.TrimSpace(upper)
 }
 
 func normalizeStage(s string) string {

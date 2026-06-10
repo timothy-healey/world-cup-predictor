@@ -42,6 +42,16 @@ func TestRunPopulatesTeamsAndMatches(t *testing.T) {
 	require.Len(t, matches, 1)
 	require.Equal(t, "2026-06-25-ARG-vs-SAU", matches[0].ID)
 
+	// Each team that played a group-stage match should have its group_id
+	// populated (derived from the match's `group` field, normalized to the
+	// bare letter — fdorg returns e.g. "Group F").
+	byCode := map[string]string{}
+	for _, t := range teams {
+		byCode[t.Code] = t.GroupID
+	}
+	require.Equal(t, "F", byCode["ARG"], "ARG should have group_id from match")
+	require.Equal(t, "F", byCode["SAU"], "SAU should have group_id from match")
+
 	// Second run should be a no-op
 	require.NoError(t, Run(context.Background(), s, c, t.TempDir(), workDir))
 	teamsAgain, _ := s.ListTeams()
@@ -138,6 +148,22 @@ func TestRunHandlesUnknownTeams(t *testing.T) {
 	require.Contains(t, ids, "2026-06-26-CUW-vs-SAU")
 	for _, m := range matches {
 		require.NotEqual(t, "CUR", m.HomeTeamCode, "match should use canonical team code, not /matches TLA")
+	}
+}
+
+func TestNormalizeGroupID(t *testing.T) {
+	cases := map[string]string{
+		"Group A":  "A",
+		"Group F":  "F",
+		"GROUP_A":  "A",
+		"GROUP_F":  "F",
+		"F":        "F",
+		"group b":  "B",
+		"":         "",
+		"  Group H ": "H",
+	}
+	for in, want := range cases {
+		require.Equal(t, want, normalizeGroupID(in), "input=%q", in)
 	}
 }
 
