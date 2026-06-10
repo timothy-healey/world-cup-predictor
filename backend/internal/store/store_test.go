@@ -85,3 +85,31 @@ func TestSetMatchResult(t *testing.T) {
 	require.NotNil(t, got.HomeScore)
 	require.Equal(t, 2, *got.HomeScore)
 }
+
+func TestPredictionInsertAndListByMatch(t *testing.T) {
+	s, _ := Open(filepath.Join(t.TempDir(), "wcp.db"))
+	defer s.Close()
+	require.NoError(t, s.UpsertTeam(Team{Code: "ARG", Name: "Argentina"}))
+	require.NoError(t, s.UpsertTeam(Team{Code: "SAU", Name: "Saudi Arabia"}))
+	require.NoError(t, s.UpsertMatch(Match{
+		ID: "m1", HomeTeamCode: "ARG", AwayTeamCode: "SAU",
+		KickoffUTC: "2026-06-25T11:00:00Z", Stage: "group",
+	}))
+
+	p := Prediction{
+		MatchID: "m1", CreatedAt: "2026-06-25T10:30:00Z",
+		Trigger: "scheduled", Confidence: "medium",
+		PredictedWinner: "ARG", PredictedScore: "2-0",
+		WinProbability: 0.71, Reasoning: "Argentina dominant",
+		InputsJSON: `{}`, RenderedPrompt: "...",
+		ModelID: "claude-opus-4-7", PromptVersion: "abc123",
+	}
+	id, err := s.InsertPrediction(p)
+	require.NoError(t, err)
+	require.Greater(t, id, int64(0))
+
+	list, err := s.ListPredictionsByMatch("m1")
+	require.NoError(t, err)
+	require.Len(t, list, 1)
+	require.Equal(t, "ARG", list[0].PredictedWinner)
+}
