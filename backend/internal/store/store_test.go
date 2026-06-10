@@ -216,6 +216,66 @@ func TestPredictionVariantDefaultsToFull(t *testing.T) {
 	require.Equal(t, "full", list[1].Variant)
 }
 
+func TestPredictionTraceJSONRoundTrip(t *testing.T) {
+	s, _ := Open(filepath.Join(t.TempDir(), "wcp.db"))
+	defer s.Close()
+
+	require.NoError(t, s.UpsertTeam(Team{Code: "ARG", Name: "Argentina"}))
+	require.NoError(t, s.UpsertTeam(Team{Code: "SAU", Name: "Saudi Arabia"}))
+	require.NoError(t, s.UpsertMatch(Match{
+		ID: "m1", HomeTeamCode: "ARG", AwayTeamCode: "SAU",
+		KickoffUTC: "2026-06-25T11:00:00Z", Stage: "group",
+	}))
+
+	want := `[{"kind":"odds","ok":false,"error":"x"}]`
+	id, err := s.InsertPrediction(Prediction{
+		MatchID:         "m1",
+		CreatedAt:       "2026-06-25T10:30:00Z",
+		Trigger:         "on_demand",
+		Confidence:      "low",
+		PredictedWinner: "ARG",
+		PredictedScore:  "1-0",
+		WinProbability:  0.55,
+		Reasoning:       "n/a",
+		InputsJSON:      "{}",
+		RenderedPrompt:  "",
+		ModelID:         "test-model",
+		PromptVersion:   "v1",
+		TraceJSON:       want,
+	})
+	require.NoError(t, err)
+	require.Greater(t, id, int64(0))
+
+	preds, err := s.ListPredictionsByMatch("m1")
+	require.NoError(t, err)
+	require.Len(t, preds, 1)
+	require.Equal(t, want, preds[0].TraceJSON)
+}
+
+func TestPredictionTraceJSONIsNullableWhenOmitted(t *testing.T) {
+	s, _ := Open(filepath.Join(t.TempDir(), "wcp.db"))
+	defer s.Close()
+
+	require.NoError(t, s.UpsertTeam(Team{Code: "ARG", Name: "Argentina"}))
+	require.NoError(t, s.UpsertTeam(Team{Code: "SAU", Name: "Saudi Arabia"}))
+	require.NoError(t, s.UpsertMatch(Match{
+		ID: "m2", HomeTeamCode: "ARG", AwayTeamCode: "SAU",
+		KickoffUTC: "2026-06-25T11:00:00Z", Stage: "group",
+	}))
+
+	_, err := s.InsertPrediction(Prediction{
+		MatchID: "m2", CreatedAt: "x", Trigger: "on_demand", Confidence: "low",
+		PredictedWinner: "ARG", PredictedScore: "1-0", WinProbability: 0.5,
+		Reasoning: "", InputsJSON: "{}", RenderedPrompt: "", ModelID: "m",
+		PromptVersion: "v", // TraceJSON omitted on purpose
+	})
+	require.NoError(t, err)
+
+	preds, _ := s.ListPredictionsByMatch("m2")
+	require.Len(t, preds, 1)
+	require.Equal(t, "", preds[0].TraceJSON, "missing trace must read as empty string")
+}
+
 func TestOpenIsIdempotentWithMigrations(t *testing.T) {
 	// Open the same DB file twice in sequence to confirm the ALTER TABLE
 	// migration handles the "column already exists" case without erroring.
