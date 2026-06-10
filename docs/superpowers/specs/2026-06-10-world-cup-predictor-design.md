@@ -141,9 +141,40 @@ world-cup-predictor/
 ├── prompts/
 │   └── predict.md                # system prompt, version-controlled
 ├── docs/superpowers/specs/
+├── .env.example                  # documented required env vars; committed
+├── .env                          # actual secrets; gitignored
+├── .gitignore
 ├── README.md
 └── Makefile                      # build, test, install (load launchd agents)
 ```
+
+### Configuration and secrets
+
+All API keys and per-user settings live in a single gitignored `.env` file at the repo root. A committed `.env.example` documents every required variable. The Go binary loads `.env` at startup via `godotenv` (or equivalent) — anyone cloning the repo copies `.env.example` to `.env`, fills in their own credentials, and the tool runs against their accounts.
+
+Required environment variables:
+
+```
+# External APIs
+THE_ODDS_API_KEY=...
+FOOTBALL_DATA_API_KEY=...
+
+# Email (Gmail SMTP)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=you@example.com
+SMTP_PASSWORD=...                # Gmail app password (16-char), not your account password
+NOTIFICATION_EMAIL_TO=you@example.com
+
+# Optional overrides
+WCP_DB_PATH=./wcp.db             # default
+WCP_SERVE_PORT=8765              # default
+WCP_CLAUDE_BIN=claude            # path to the claude CLI, default uses $PATH
+```
+
+**Claude Code authentication is not managed by this repo.** The tool invokes the `claude` CLI as a subprocess, which uses whatever auth state is in `~/.claude/`. A new user who clones the repo must have Claude Code installed and have completed `claude` interactive login (or `claude login`) under their own account before `wcp predict` will work. The README documents this as a prerequisite.
+
+**The Claude subscription itself is per-user.** The cost summary below assumes the user is on Claude Max; a new clone might run against an API key instead via a future config flag (see Open considerations).
 
 ## Data model
 
