@@ -6,6 +6,8 @@ import { latestPrediction } from "../lib/trackRecord";
 import { actualWinnerCode, actualWinnerSide } from "../lib/outcome";
 import { Check, X } from "./icons";
 
+const BRACKET_GRID = "1.05fr 0.95fr 0.95fr 0.95fr 0.95fr";
+
 interface Props {
   matches: Match[];
 }
@@ -16,7 +18,7 @@ function teamLabel(code: string): string {
 }
 
 function teamClass(code: string, side: "home" | "away", outcome: ReturnType<typeof actualWinnerSide>): string {
-  const base = "font-display text-[14px] uppercase tracking-[0.02em]";
+  const base = "font-display text-base uppercase tracking-label-tight";
   if (!code) return `${base} font-medium italic text-ink-4 font-body text-xs tracking-normal normal-case`;
   if (outcome === null) return `${base} font-medium text-ink-2`;
   if (outcome === "draw") return `${base} font-extrabold text-ink`;
@@ -67,7 +69,7 @@ function MatchCell({ m, accent }: { m: Match; accent?: boolean }) {
           {teamLabel(m.home_team_code)}
         </span>
         <span className="min-w-[18px] text-right font-display text-base font-extrabold text-ink">
-          {finished ? m.home_score : <span className="text-[10px] font-body text-ink-3">{formatKickoff(m.kickoff_utc).split("·")[1]?.trim() ?? "TBD"}</span>}
+          {finished ? m.home_score : <span className="text-2xs font-body text-ink-3">{formatKickoff(m.kickoff_utc).split("·")[1]?.trim() ?? "TBD"}</span>}
         </span>
       </div>
       <div className="flex items-center justify-between py-0.5">
@@ -78,7 +80,7 @@ function MatchCell({ m, accent }: { m: Match; accent?: boolean }) {
           {finished ? m.away_score : ""}
         </span>
       </div>
-      <div className="mt-1.5 border-t border-dashed pt-1.5 text-[10px]">
+      <div className="mt-1.5 border-t border-dashed pt-1.5 text-2xs">
         {predictionVerdict(m)}
       </div>
     </div>
@@ -90,22 +92,22 @@ export function KnockoutBracket({ matches }: Props) {
 
   return (
     <div>
-      <header className="mb-4 text-xs font-semibold uppercase tracking-label text-primary">
+      <h2 className="mb-4 text-xs font-semibold uppercase tracking-label text-primary">
         Knockout bracket
-      </header>
+      </h2>
       <div
         className="grid gap-3.5"
-        style={{ gridTemplateColumns: "1.05fr 0.95fr 0.95fr 0.95fr 0.95fr" }}
+        style={{ gridTemplateColumns: BRACKET_GRID }}
       >
         {bracket.columns.map((col) => (
-          <div key={col.stage} className="font-display text-[13px] font-extrabold uppercase tracking-[0.04em] text-center text-ink">
+          <div key={col.stage} className="font-display text-2sm font-extrabold uppercase tracking-label-mid text-center text-ink">
             {col.label}
           </div>
         ))}
       </div>
       <div
         className="mt-2 grid gap-3.5"
-        style={{ gridTemplateColumns: "1.05fr 0.95fr 0.95fr 0.95fr 0.95fr" }}
+        style={{ gridTemplateColumns: BRACKET_GRID }}
       >
         {bracket.columns.map((col) => (
           <div

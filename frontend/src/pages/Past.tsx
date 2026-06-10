@@ -42,9 +42,9 @@ export function Past({ data }: Props) {
   return (
     <div className="bg-bg px-7 py-7">
       <header className="mb-5 flex items-center justify-between">
-        <div className="text-xs font-semibold uppercase tracking-label text-primary">
+        <h2 className="text-xs font-semibold uppercase tracking-label text-primary">
           Past results
-        </div>
+        </h2>
         <div className="flex items-center gap-3">
           <select
             value={team}

@@ -23,6 +23,7 @@ Visual system for the World Cup Predictor dashboard. Single light theme, "Floodl
 --color-primary-soft      #FBE4F0   oklch(94% 0.04 0)        Primary backgrounds for selected states, focus highlights.
 --color-secondary         #F0BA2C   oklch(80% 0.15 85)       Mustard. Text on dark CTAs, high-energy data points, score emphasis.
 --color-secondary-soft    #FBE9C8   oklch(92% 0.05 85)       Backgrounds for "medium confidence" badge fills.
+--color-secondary-ink     #7A5910   oklch(40% 0.10 80)       Foreground for medium-confidence badge text on --color-secondary-soft.
 
 /* Surfaces — cream stock, warm */
 --color-bg                #FAF5EB   oklch(96.5% 0.012 80)    Page background.
@@ -32,15 +33,15 @@ Visual system for the World Cup Predictor dashboard. Single light theme, "Floodl
 /* Ink — warm dark, tinted toward primary */
 --color-ink               #1B0E12   oklch(13% 0.015 10)      Primary text, dark CTAs.
 --color-ink-2             #4A3940   oklch(34% 0.018 10)      Secondary text.
---color-ink-3             #847078   oklch(58% 0.014 10)      Tertiary / meta text.
+--color-ink-3             #7A6770   oklch(53% 0.014 10)      Tertiary / meta text. Clears WCAG AA 4.5:1 on cream surfaces.
 --color-ink-4             #BCB0B5   oklch(76% 0.010 10)      Disabled / placeholder.
 
 /* Outcomes — semantic, paired with icons (✓ / ✗) */
---color-correct           #1B7E55   oklch(50% 0.13 155)      ✓ winner correct, advancing in group, completed match.
+--color-correct           #13633F   oklch(43% 0.12 155)      ✓ winner correct, advancing in group, completed match. Deepened for AA on soft bg.
 --color-correct-soft      #D9F1E3   oklch(92% 0.045 155)
 --color-wrong             #C73848   oklch(55% 0.16 22)       ✗ prediction wrong.
 --color-wrong-soft        #FBE0E2   oklch(92% 0.03 22)
---color-pending           #4A6BD1   oklch(50% 0.15 268)      Scheduled / awaiting kickoff. Indigo, not magenta — distinct from "prediction made".
+--color-pending           #3753B8   oklch(43% 0.14 268)      Scheduled / awaiting kickoff. Indigo, not magenta, distinct from "prediction made". Deepened for AA on soft bg.
 --color-pending-soft      #DFE4FA   oklch(92% 0.04 268)
 
 /* Borders — hairline, ink-tinted */
@@ -79,20 +80,29 @@ Both via Google Fonts. Preconnect + display swap; preload the display weights ac
 --font-mono               ui-monospace, "SF Mono", "DM Mono", monospace   /* only for raw odds */
 
 /* Type scale — body sizes are Inter; display sizes are Big Shoulders */
---text-xs       11px / 1.4    Inter 600   Labels, meta
---text-sm       12px / 1.5    Inter 500   Filters, badges, dropdowns
---text-base     14px / 1.55   Inter 400   Body, reasoning bullets
---text-md       15px / 1.5    Inter 500   Match card titles in compact view
---text-lg       18px / 1.35   Inter 600   Section headings
---text-xl       22px / 1.2    Display 800 Stat tile numbers
---text-2xl      28px / 1.1    Display 800 Match name on prediction cards
---text-3xl      40px / 1.05   Display 900 Actual score on past-match cards
---text-hero     56px / 1.0    Display 900 Top-of-page accent (e.g. tournament title bar)
+--text-3xs         9px / 1.4    Inter 600   Tight column headers (group tables)
+--text-2xs        10px / 1.4    Inter 600   Micro labels in compact cards (stat labels, bracket footer)
+--text-xs         11px / 1.4    Inter 600   Standard labels, meta
+--text-sm         12px / 1.5    Inter 500   Filters, badges, dropdowns
+--text-2sm        13px / 1.4    Inter 500   Compact display labels (bracket column headers, group team code)
+--text-base       14px / 1.55   Inter 400   Body, reasoning bullets
+--text-md         15px / 1.5    Inter 500   Match card titles in compact view
+--text-lg         18px / 1.35   Inter 600   Section headings
+--text-xl         22px / 1.2    Display 800 Stat tile numbers
+--text-2xl        28px / 1.1    Display 800 Match name on past-match cards, supporting stat values
+--text-display-md 32px / 1.05   Display 800 Hero stat sub-figures (e.g. "2 of 7")
+--text-display-lg 34px / 1.05   Display 900 Match name on prediction & next-match cards
+--text-3xl        40px / 1.05   Display 900 Actual score on past-match cards
+--text-display-xl 48px / 1.0    Display 900 Hero stat unit (e.g. "%")
+--text-hero       56px / 1.0    Display 900 Top-of-page accent (e.g. tournament title bar)
+--text-display-jumbo 88px / 0.9 Display 900 Track-record hero accuracy number
 
 /* Letter-spacing — Big Shoulders is condensed; slight negative tracking on largest sizes */
---tracking-display       -0.01em    Default for display text
---tracking-display-tight -0.02em    Use on hero sizes
---tracking-label          0.08em    Uppercase labels (stage, section labels)
+--tracking-display        -0.01em    Default for display text
+--tracking-display-tight  -0.02em    Use on hero sizes
+--tracking-label-tight     0.02em    Compact uppercase labels (badges, bracket teams, group headers)
+--tracking-label-mid       0.05em    Mid-size uppercase labels (table headers, match-card meta, bracket column headers)
+--tracking-label           0.08em    Top-of-page section labels (the magenta stage labels)
 ```
 
 ### Usage rules

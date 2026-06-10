@@ -13,7 +13,6 @@ interface Props {
   groupLabel?: string; // e.g. "Group B"
   onPredict?: (matchID: string) => void;
   predictDisabled?: boolean;
-  predictDisabledReason?: string;
 }
 
 export function MatchCard({
@@ -22,7 +21,6 @@ export function MatchCard({
   groupLabel,
   onPredict,
   predictDisabled,
-  predictDisabledReason,
 }: Props) {
   const ko = new Date(match.kickoff_utc);
   const now = new Date();
@@ -31,7 +29,7 @@ export function MatchCard({
 
   const teamSize =
     variant === "next"
-      ? "text-[34px]"
+      ? "text-display-lg"
       : "text-xl";
 
   return (
@@ -40,7 +38,7 @@ export function MatchCard({
         variant === "next" ? "border-ink p-5" : "p-4"
       }`}
     >
-      <div className="text-xs font-semibold uppercase tracking-[0.05em] text-ink-3">
+      <div className="text-xs font-semibold uppercase tracking-label-mid text-ink-3">
         <span
           className={`mr-1.5 inline-block h-1.5 w-1.5 align-middle rounded-pill bg-pending ${
             within10 ? "animate-pulse !bg-primary" : ""
@@ -56,7 +54,7 @@ export function MatchCard({
         {flagFor(match.away_team_code)} {match.away_team_code}
       </div>
       {(groupLabel || match.venue) && (
-        <div className="text-xs uppercase tracking-[0.05em] font-medium text-ink-3">
+        <div className="text-xs uppercase tracking-label-mid font-medium text-ink-3">
           {[groupLabel, match.venue].filter(Boolean).join(" · ")}
         </div>
       )}
@@ -70,7 +68,6 @@ export function MatchCard({
           <Button
             variant={pred ? "ghost" : "primary"}
             disabled={predictDisabled}
-            title={predictDisabled ? predictDisabledReason : undefined}
             onClick={() => onPredict(match.id)}
           >
             {pred ? (
