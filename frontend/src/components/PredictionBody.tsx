@@ -8,6 +8,7 @@ import { Button } from "./Button";
 import { Refresh, Zap } from "./icons";
 import { PredictionStats } from "./PredictionStats";
 import { PredictionReasoning } from "./PredictionReasoning";
+import { ThinkingIndicator } from "./ThinkingIndicator";
 
 interface Props {
   match: Match;
@@ -16,6 +17,8 @@ interface Props {
   groupLabel?: string;
   onPredict?: (matchID: string) => void;
   predictDisabled?: boolean;
+  activeMatchId?: string | null;
+  elapsedMs?: number;
   onCollapse?: () => void;
 }
 
@@ -26,8 +29,11 @@ export function PredictionBody({
   groupLabel,
   onPredict,
   predictDisabled,
+  activeMatchId,
+  elapsedMs,
   onCollapse,
 }: Props) {
+  const isPredictingThis = activeMatchId === match.id;
   const pred = latestPrediction(match);
   const ko = new Date(match.kickoff_utc);
   const homeName = teamName(match.home_team_code);
@@ -77,26 +83,31 @@ export function PredictionBody({
       {(onPredict || (variant === "dashboard" && onCollapse)) && (
         <div className="mt-6 flex items-center justify-between border-t pt-4">
           <div className="flex gap-2.5">
-            {onPredict && (
-              <Button
-                variant={pred ? "ghost" : "primary"}
-                disabled={predictDisabled}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onPredict(match.id);
-                }}
-              >
-                {pred ? (
-                  <>
-                    <Refresh /> Re-predict
-                  </>
-                ) : (
-                  <>
-                    <Zap /> Predict now
-                  </>
-                )}
-              </Button>
-            )}
+            {onPredict &&
+              (isPredictingThis ? (
+                <span className="px-4 py-2 text-sm font-semibold text-ink-2">
+                  <ThinkingIndicator elapsedMs={elapsedMs} />
+                </span>
+              ) : (
+                <Button
+                  variant={pred ? "ghost" : "primary"}
+                  disabled={predictDisabled}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPredict(match.id);
+                  }}
+                >
+                  {pred ? (
+                    <>
+                      <Refresh /> Re-predict
+                    </>
+                  ) : (
+                    <>
+                      <Zap /> Predict now
+                    </>
+                  )}
+                </Button>
+              ))}
           </div>
           {variant === "dashboard" && onCollapse && (
             <button

@@ -7,6 +7,8 @@ interface Props {
   groupLabel?: string;
   onPredict?: (matchID: string) => void;
   predictDisabled?: boolean;
+  activeMatchId?: string | null;
+  elapsedMs?: number;
 }
 
 export function PredictionCard({
@@ -15,6 +17,8 @@ export function PredictionCard({
   groupLabel,
   onPredict,
   predictDisabled,
+  activeMatchId,
+  elapsedMs,
 }: Props) {
   return (
     <article className="mb-3.5 rounded-lg border bg-surface px-6 py-5 sm:px-8 sm:py-6">
@@ -25,6 +29,8 @@ export function PredictionCard({
         groupLabel={groupLabel}
         onPredict={onPredict}
         predictDisabled={predictDisabled}
+        activeMatchId={activeMatchId}
+        elapsedMs={elapsedMs}
       />
     </article>
   );

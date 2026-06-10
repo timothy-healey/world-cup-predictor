@@ -8,13 +8,21 @@ interface Props {
   data: ExportPayload;
   onPredict: (matchID: string) => void;
   predictDisabled: boolean;
+  activeMatchId: string | null;
+  elapsedMs: number;
 }
 
 type SortDir = "soonest" | "latest";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-export function Upcoming({ data, onPredict, predictDisabled }: Props) {
+export function Upcoming({
+  data,
+  onPredict,
+  predictDisabled,
+  activeMatchId,
+  elapsedMs,
+}: Props) {
   const [team, setTeam] = useState<string>("all");
   const [sort, setSort] = useState<SortDir>("soonest");
   const [showAll, setShowAll] = useState(false);
@@ -102,6 +110,8 @@ export function Upcoming({ data, onPredict, predictDisabled }: Props) {
             }
             onPredict={onPredict}
             predictDisabled={predictDisabled}
+            activeMatchId={activeMatchId}
+            elapsedMs={elapsedMs}
           />
         ))
       )}

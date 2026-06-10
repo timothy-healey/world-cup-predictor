@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ExportPayload } from "../types/api";
+import { trace, traceFetch } from "../lib/trace";
 
 const POLL_MS = 60_000;
 const SOURCE = "/predictions.json";
+
+const t = trace("data");
 
 interface DataState {
   data: ExportPayload | null;
@@ -27,23 +30,41 @@ function filterProductionVariants(payload: ExportPayload): ExportPayload {
   };
 }
 
+function summarize(payload: ExportPayload): Record<string, number> {
+  let predictions = 0;
+  for (const m of payload.matches ?? []) predictions += (m.predictions ?? []).length;
+  return {
+    teams: (payload.teams ?? []).length,
+    matches: (payload.matches ?? []).length,
+    predictions,
+  };
+}
+
 export function useData() {
   const [state, setState] = useState<DataState>({ data: null, error: null, loading: true });
   const cancelled = useRef(false);
+  const tickRef = useRef(0);
 
   const fetchOnce = useCallback(async () => {
+    const tick = ++tickRef.current;
+    const url = `${SOURCE}?t=${Date.now()}`;
+    t.log(`tick #${tick} fetching predictions.json`);
     try {
-      const res = await fetch(`${SOURCE}?t=${Date.now()}`, { cache: "no-store" });
+      const res = await traceFetch(url, { cache: "no-store", ns: "data", label: `tick #${tick}` });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json: ExportPayload = await res.json();
+      const raw: ExportPayload = await res.json();
+      const filtered = filterProductionVariants(raw);
+      t.log(`tick #${tick} payload loaded`, summarize(filtered));
       if (!cancelled.current) {
-        setState({ data: filterProductionVariants(json), error: null, loading: false });
+        setState({ data: filtered, error: null, loading: false });
       }
     } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      t.error(`tick #${tick} failed: ${msg}`);
       if (!cancelled.current) {
         setState((prev) => ({
           data: prev.data,
-          error: e instanceof Error ? e.message : String(e),
+          error: msg,
           loading: false,
         }));
       }
@@ -52,11 +73,13 @@ export function useData() {
 
   useEffect(() => {
     cancelled.current = false;
+    t.log(`mounted; polling every ${POLL_MS}ms`);
     fetchOnce();
     const id = setInterval(fetchOnce, POLL_MS);
     return () => {
       cancelled.current = true;
       clearInterval(id);
+      t.log("unmounted; polling stopped");
     };
   }, [fetchOnce]);
 

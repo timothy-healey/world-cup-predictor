@@ -8,6 +8,7 @@ import { flagFor } from "../data/flags";
 import { formatKickoff, formatCountdown } from "../lib/format";
 import { confidenceBadge } from "../lib/confidence";
 import { PredictionBody } from "./PredictionBody";
+import { ThinkingIndicator } from "./ThinkingIndicator";
 
 interface Props {
   match: Match;
@@ -15,6 +16,8 @@ interface Props {
   groupLabel?: string;
   onPredict?: (matchID: string) => void;
   predictDisabled?: boolean;
+  activeMatchId?: string | null;
+  elapsedMs?: number;
   expanded?: boolean;
   onToggle?: () => void;
   teamName?: (code: string) => string;
@@ -26,6 +29,8 @@ export function MatchCard({
   groupLabel,
   onPredict,
   predictDisabled,
+  activeMatchId,
+  elapsedMs,
   expanded = false,
   onToggle,
   teamName,
@@ -50,6 +55,8 @@ export function MatchCard({
     onToggle();
   };
 
+  const isPredictingThis = activeMatchId === match.id;
+
   if (expanded && teamName) {
     return (
       <div
@@ -70,6 +77,8 @@ export function MatchCard({
             groupLabel={groupLabel}
             onPredict={onPredict}
             predictDisabled={predictDisabled}
+            activeMatchId={activeMatchId}
+            elapsedMs={elapsedMs}
             onCollapse={onToggle}
           />
         </div>
@@ -119,26 +128,31 @@ export function MatchCard({
         ) : (
           <Badge tone="pending">T-30 scheduled</Badge>
         )}
-        {onPredict && (
-          <Button
-            variant={pred ? "ghost" : "primary"}
-            disabled={predictDisabled}
-            onClick={(e) => {
-              e.stopPropagation();
-              onPredict(match.id);
-            }}
-          >
-            {pred ? (
-              <>
-                <Refresh /> Re-predict
-              </>
-            ) : (
-              <>
-                <Zap /> Predict now
-              </>
-            )}
-          </Button>
-        )}
+        {onPredict &&
+          (isPredictingThis ? (
+            <span className="px-4 py-2 text-sm font-semibold text-ink-2">
+              <ThinkingIndicator elapsedMs={elapsedMs} />
+            </span>
+          ) : (
+            <Button
+              variant={pred ? "ghost" : "primary"}
+              disabled={predictDisabled}
+              onClick={(e) => {
+                e.stopPropagation();
+                onPredict(match.id);
+              }}
+            >
+              {pred ? (
+                <>
+                  <Refresh /> Re-predict
+                </>
+              ) : (
+                <>
+                  <Zap /> Predict now
+                </>
+              )}
+            </Button>
+          ))}
       </div>
     </div>
   );

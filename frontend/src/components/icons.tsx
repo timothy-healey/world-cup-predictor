@@ -54,3 +54,4 @@ export function Clock({ size = 14, ...rest }: IconProps) {
     </svg>
   );
 }
+

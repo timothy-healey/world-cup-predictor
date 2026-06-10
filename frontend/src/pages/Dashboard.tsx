@@ -15,9 +15,17 @@ interface Props {
   data: ExportPayload;
   onPredict: (matchID: string) => void;
   predictDisabled: boolean;
+  activeMatchId: string | null;
+  elapsedMs: number;
 }
 
-export function Dashboard({ data, onPredict, predictDisabled }: Props) {
+export function Dashboard({
+  data,
+  onPredict,
+  predictDisabled,
+  activeMatchId,
+  elapsedMs,
+}: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const upcoming = useMemo(() => {
@@ -85,6 +93,8 @@ export function Dashboard({ data, onPredict, predictDisabled }: Props) {
               }
               onPredict={onPredict}
               predictDisabled={predictDisabled}
+              activeMatchId={activeMatchId}
+              elapsedMs={elapsedMs}
             />
             <div
               className="grid gap-3.5"
@@ -103,6 +113,8 @@ export function Dashboard({ data, onPredict, predictDisabled }: Props) {
                   }
                   onPredict={onPredict}
                   predictDisabled={predictDisabled}
+                  activeMatchId={activeMatchId}
+                  elapsedMs={elapsedMs}
                   onToggle={() => setExpandedId(nextExpandedId(expandedId, m.id))}
                 />
               ))}
@@ -126,6 +138,8 @@ export function Dashboard({ data, onPredict, predictDisabled }: Props) {
                 }
                 onPredict={onPredict}
                 predictDisabled={predictDisabled}
+                activeMatchId={activeMatchId}
+                elapsedMs={elapsedMs}
                 onToggle={() => setExpandedId(nextExpandedId(expandedId, m.id))}
               />
             ))}

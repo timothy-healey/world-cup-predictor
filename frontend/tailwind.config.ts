@@ -94,9 +94,14 @@ export default {
           "0%": { boxShadow: "0 0 0 0 rgba(221,38,128,0.55)" },
           "100%": { boxShadow: "0 0 0 7px rgba(221,38,128,0)" },
         },
+        wordIn: {
+          "0%": { opacity: "0", transform: "translateY(2px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         pulse: "pulse 1.8s ease-out infinite",
+        "word-in": "wordIn 240ms ease-out",
       },
     },
   },
