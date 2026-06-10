@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/timhealey/world-cup-predictor/backend/internal/ratelimit"
+	"github.com/timhealey/world-cup-predictor/backend/internal/trace"
 )
 
 // RateLimitInfo is the most recent rate-limit observation made by this
@@ -100,20 +101,28 @@ func (c *Client) get(ctx context.Context, path string) ([]byte, error) {
 // doRequest performs a single HTTP GET and returns body + status + headers.
 // Body is fully read so the caller does not need to manage the response.
 func (c *Client) doRequest(ctx context.Context, path string) ([]byte, int, http.Header, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+path, nil)
+	url := c.baseURL + path
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, 0, nil, err
 	}
 	req.Header.Set("X-Auth-Token", c.apiKey)
+
+	trace.HTTPStart("fdorg", "GET", url)
+	start := time.Now()
 	resp, err := c.httpc.Do(req)
 	if err != nil {
+		trace.HTTPError("fdorg", time.Since(start), err)
 		return nil, 0, nil, err
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
+	dur := time.Since(start)
 	if err != nil {
+		trace.HTTPError("fdorg", dur, err)
 		return nil, resp.StatusCode, resp.Header, err
 	}
+	trace.HTTPEnd("fdorg", resp.StatusCode, dur, len(body))
 	return body, resp.StatusCode, resp.Header, nil
 }
 

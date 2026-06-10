@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/timhealey/world-cup-predictor/backend/internal/trace"
 )
 
 func TestClientGetTeamsParsesResponse(t *testing.T) {
@@ -182,4 +183,24 @@ func TestClient429RetryFailsTwice(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "429")
 	require.Equal(t, int32(2), calls.Load(), "expected one retry, not more")
+}
+
+func TestDoRequestEmitsHTTPWirelog(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Requests-Available-Minute", "10")
+		_, _ = w.Write([]byte(`{"competition":{"name":"WC"}}`))
+	}))
+	defer srv.Close()
+
+	var buf bytes.Buffer
+	prev := trace.SetWriter(&buf)
+	defer trace.SetWriter(prev)
+
+	c := NewClient(srv.URL, "k")
+	_, err := c.get(t.Context(), "/v4/competitions/WC/matches")
+	require.NoError(t, err)
+
+	out := buf.String()
+	require.Contains(t, out, "[wcp:fdorg] → GET "+srv.URL+"/v4/competitions/WC/matches")
+	require.Contains(t, out, "[wcp:fdorg] ✓ 200 (")
 }

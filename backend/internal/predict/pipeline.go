@@ -11,6 +11,7 @@ import (
 	"github.com/timhealey/world-cup-predictor/backend/internal/claudec"
 	"github.com/timhealey/world-cup-predictor/backend/internal/fetchers"
 	"github.com/timhealey/world-cup-predictor/backend/internal/store"
+	"github.com/timhealey/world-cup-predictor/backend/internal/trace"
 )
 
 // systemPromptBytes embeds the predict system prompt at build time so the
@@ -19,12 +20,16 @@ import (
 //go:embed predict.md
 var systemPromptBytes []byte
 
-// Deps holds injectable fetcher functions for testing.
+// Deps holds injectable fetcher functions for testing. Each fetcher returns:
+//   - data: the fetcher result (typed per kind)
+//   - err: non-nil iff the fetcher failed; the pipeline treats nil as "ok"
+//   - snippet: a human-readable preview for the trace (caller is free to
+//     return "" on failure; truncation to 400 bytes happens in trace.Recorder)
 type Deps struct {
-	FetchOdds    func(ctx context.Context, homeName, awayName, kickoff string) (any, bool)
-	FetchNews    func(ctx context.Context, d any, home, away string) (fetchers.NewsResult, bool)
-	FetchLineup  func(ctx context.Context, d any, home, away string) (fetchers.LineupResult, bool)
-	FetchContext func(s *store.Store, homeCode, awayCode string) (fetchers.ContextResult, bool)
+	FetchOdds    func(ctx context.Context, homeName, awayName, kickoff string) (any, error, string)
+	FetchNews    func(ctx context.Context, d any, home, away string) (fetchers.NewsResult, error, string)
+	FetchLineup  func(ctx context.Context, d any, home, away string) (fetchers.LineupResult, error, string)
+	FetchContext func(s *store.Store, homeCode, awayCode string) (fetchers.ContextResult, error, string)
 }
 
 type Pipeline struct {
@@ -52,22 +57,27 @@ func (p *Pipeline) Run(ctx context.Context, matchID, trigger string) (store.Pred
 	home, _ := p.store.GetTeam(m.HomeTeamCode)
 	away, _ := p.store.GetTeam(m.AwayTeamCode)
 
-	// Run fetchers in parallel via goroutines.
+	rec := trace.New()
+
 	type oddsR struct {
-		data any
-		ok   bool
+		data    any
+		err     error
+		snippet string
 	}
 	type newsR struct {
-		data fetchers.NewsResult
-		ok   bool
+		data    fetchers.NewsResult
+		err     error
+		snippet string
 	}
 	type lineupR struct {
-		data fetchers.LineupResult
-		ok   bool
+		data    fetchers.LineupResult
+		err     error
+		snippet string
 	}
 	type ctxR struct {
-		data fetchers.ContextResult
-		ok   bool
+		data    fetchers.ContextResult
+		err     error
+		snippet string
 	}
 
 	oCh := make(chan oddsR, 1)
@@ -75,21 +85,28 @@ func (p *Pipeline) Run(ctx context.Context, matchID, trigger string) (store.Pred
 	lCh := make(chan lineupR, 1)
 	cCh := make(chan ctxR, 1)
 
+	// Start the four trace timers up front so each kind has a started_at
+	// regardless of which goroutine finishes first.
+	rec.Start("odds")
+	rec.Start("news")
+	rec.Start("lineup")
+	rec.Start("context")
+
 	go func() {
-		d, ok := p.deps.FetchOdds(ctx, home.Name, away.Name, m.KickoffUTC)
-		oCh <- oddsR{d, ok}
+		d, e, s := p.deps.FetchOdds(ctx, home.Name, away.Name, m.KickoffUTC)
+		oCh <- oddsR{d, e, s}
 	}()
 	go func() {
-		d, ok := p.deps.FetchNews(ctx, p.claude, home.Name, away.Name)
-		nCh <- newsR{d, ok}
+		d, e, s := p.deps.FetchNews(ctx, p.claude, home.Name, away.Name)
+		nCh <- newsR{d, e, s}
 	}()
 	go func() {
-		d, ok := p.deps.FetchLineup(ctx, p.claude, home.Name, away.Name)
-		lCh <- lineupR{d, ok}
+		d, e, s := p.deps.FetchLineup(ctx, p.claude, home.Name, away.Name)
+		lCh <- lineupR{d, e, s}
 	}()
 	go func() {
-		d, ok := p.deps.FetchContext(p.store, m.HomeTeamCode, m.AwayTeamCode)
-		cCh <- ctxR{d, ok}
+		d, e, s := p.deps.FetchContext(p.store, m.HomeTeamCode, m.AwayTeamCode)
+		cCh <- ctxR{d, e, s}
 	}()
 
 	odds := <-oCh
@@ -97,12 +114,17 @@ func (p *Pipeline) Run(ctx context.Context, matchID, trigger string) (store.Pred
 	lineup := <-lCh
 	context_ := <-cCh
 
+	rec.Finish("odds", odds.err, odds.snippet)
+	rec.Finish("news", news.err, news.snippet)
+	rec.Finish("lineup", lineup.err, lineup.snippet)
+	rec.Finish("context", context_.err, context_.snippet)
+
 	conf := Confidence(Inputs{
-		LineupOK:        lineup.ok,
-		LineupConfirmed: lineup.ok && lineup.data.Confirmed,
-		OddsOK:          odds.ok,
-		NewsOK:          news.ok,
-		ContextOK:       context_.ok,
+		LineupOK:        lineup.err == nil,
+		LineupConfirmed: lineup.err == nil && lineup.data.Confirmed,
+		OddsOK:          odds.err == nil,
+		NewsOK:          news.err == nil,
+		ContextOK:       context_.err == nil,
 	})
 
 	inputsRaw, _ := json.Marshal(map[string]any{
@@ -119,35 +141,39 @@ func (p *Pipeline) Run(ctx context.Context, matchID, trigger string) (store.Pred
 		KickoffUTC:   m.KickoffUTC,
 		Stage:        m.Stage,
 		OddsBlock: func() string {
-			if !odds.ok {
+			if odds.err != nil {
 				return ""
 			}
 			return blockify(odds.data)
 		}(),
 		NewsBlock: func() string {
-			if !news.ok {
+			if news.err != nil {
 				return ""
 			}
 			return fmt.Sprintf("Home: %s\nAway: %s", news.data.HomeSummary, news.data.AwaySummary)
 		}(),
 		LineupBlock: func() string {
-			if !lineup.ok {
+			if lineup.err != nil {
 				return ""
 			}
 			return fmt.Sprintf("Confirmed: %v\nNotes: %s", lineup.data.Confirmed, lineup.data.Notes)
 		}(),
 		ContextBlock: func() string {
-			if !context_.ok {
+			if context_.err != nil {
 				return ""
 			}
 			return strings.TrimSpace(context_.data.TournamentContext + "\n\n" + context_.data.TrackRecord)
 		}(),
 	})
 
+	rec.Start("predict")
 	res, err := p.claude.Predict(ctx, prompt)
+	rec.Finish("predict", err, predictSnippet(res, err))
 	if err != nil {
 		return store.Prediction{}, fmt.Errorf("claude predict: %w", err)
 	}
+
+	traceBytes, _ := rec.JSON()
 
 	pred := store.Prediction{
 		MatchID:         matchID,
@@ -163,6 +189,7 @@ func (p *Pipeline) Run(ctx context.Context, matchID, trigger string) (store.Pred
 		ModelID:         p.claude.ModelID(),
 		PromptVersion:   p.promptVersion,
 		Variant:         "full",
+		TraceJSON:       string(traceBytes),
 	}
 	id, err := p.store.InsertPrediction(pred)
 	if err != nil {
@@ -170,6 +197,24 @@ func (p *Pipeline) Run(ctx context.Context, matchID, trigger string) (store.Pred
 	}
 	pred.ID = id
 	return pred, nil
+}
+
+// predictSnippet derives a short preview from the claude predict result.
+// On error the result is the zero value, so we return an empty snippet — the
+// error string already carries the diagnostic context.
+func predictSnippet(res claudec.Result, err error) string {
+	if err != nil {
+		return ""
+	}
+	b, jerr := json.Marshal(map[string]any{
+		"winner":          res.Winner,
+		"predicted_score": res.PredictedScore,
+		"win_probability": res.WinProbability,
+	})
+	if jerr != nil {
+		return ""
+	}
+	return string(b)
 }
 
 func blockify(v any) string {

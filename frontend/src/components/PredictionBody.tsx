@@ -1,13 +1,16 @@
+import { useState } from "react";
 import type { Match } from "../types/api";
 import { latestPrediction } from "../lib/trackRecord";
 import { flagFor } from "../data/flags";
 import { formatKickoff, formatCountdown } from "../lib/format";
 import { confidenceBadge } from "../lib/confidence";
+import { okCount, pillTone } from "../lib/traceFormat";
 import { Badge } from "./Badge";
 import { Button } from "./Button";
 import { Refresh, Zap } from "./icons";
 import { PredictionStats } from "./PredictionStats";
 import { PredictionReasoning } from "./PredictionReasoning";
+import { PredictionTrace } from "./PredictionTrace";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 
 interface Props {
@@ -38,6 +41,12 @@ export function PredictionBody({
   const ko = new Date(match.kickoff_utc);
   const homeName = teamName(match.home_team_code);
   const awayName = teamName(match.away_team_code);
+  const [traceOpen, setTraceOpen] = useState(false);
+
+  const traceAvailable = pred?.trace != null;
+  const okN = traceAvailable ? okCount(pred!.trace!) : 0;
+  const totalN = traceAvailable ? pred!.trace!.length : 0;
+  const tone = traceAvailable ? pillTone(okN, totalN) : "degraded";
 
   return (
     <div className="wcp-reveal">
@@ -56,6 +65,32 @@ export function PredictionBody({
               {confidenceBadge(pred.confidence).label} confidence
             </Badge>
           )}
+          {traceAvailable && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setTraceOpen((o) => !o);
+              }}
+              className={
+                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-[3px] text-[10px] font-bold uppercase tracking-label transition-colors " +
+                (tone === "ok"
+                  ? "border-black/12 bg-black/[0.04] text-ink-3 hover:bg-black/10"
+                  : "border-primary/22 bg-primary/[0.08] text-primary hover:bg-primary/15")
+              }
+              aria-expanded={traceOpen}
+              aria-label={`Input trace ${okN} of ${totalN} ok`}
+            >
+              <span
+                className={
+                  "inline-block h-[5px] w-[5px] rounded-full " +
+                  (tone === "ok" ? "bg-emerald-600" : "bg-primary")
+                }
+                aria-hidden
+              />
+              {okN}/{totalN} inputs
+            </button>
+          )}
         </div>
       </header>
 
@@ -69,10 +104,25 @@ export function PredictionBody({
       )}
 
       {pred ? (
-        <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
-          <PredictionStats prediction={pred} teamName={teamName} />
-          <PredictionReasoning reasoning={pred.reasoning} />
-        </div>
+        <>
+          <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
+            <PredictionStats
+              prediction={pred}
+              teamName={teamName}
+              onTraceClick={
+                traceAvailable ? () => setTraceOpen((o) => !o) : undefined
+              }
+            />
+            <PredictionReasoning reasoning={pred.reasoning} />
+          </div>
+          {traceAvailable && (
+            <PredictionTrace
+              trace={pred.trace!}
+              open={traceOpen}
+              onToggle={() => setTraceOpen((o) => !o)}
+            />
+          )}
+        </>
       ) : (
         <div className="mt-6 rounded-md border border-dashed bg-surface-sunk px-5 py-4 text-sm text-ink-2">
           No prediction yet. The scheduled launchd agent will fire at T-30, or

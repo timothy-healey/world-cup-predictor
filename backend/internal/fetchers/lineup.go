@@ -28,5 +28,5 @@ Reply with ONLY this JSON, no prose:
   "away_xi": ["player", ...],
   "notes": "short reason / source"
 }`, home, away)
-	return runJSON[LineupResult](ctx, d, prompt)
+	return runJSON[LineupResult](ctx, d, "lineup", prompt)
 }

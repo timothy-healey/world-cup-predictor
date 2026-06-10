@@ -1,6 +1,8 @@
 package store
 
 import (
+	"database/sql"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -21,6 +23,45 @@ func TestOpenAppliesSchema(t *testing.T) {
 	)
 	require.NoError(t, row.Scan(&count))
 	require.Equal(t, 3, count)
+}
+
+func TestMigrateAddsTraceJSONColumn(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "wcp_test.db")
+	s, err := Open(dbPath)
+	require.NoError(t, err)
+	defer s.Close()
+
+	// Confirm the column exists on the predictions table.
+	rows, err := s.DB().Query(`PRAGMA table_info(predictions)`)
+	require.NoError(t, err)
+	defer rows.Close()
+
+	found := false
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dflt sql.NullString
+		require.NoError(t, rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk))
+		if name == "trace_json" {
+			require.Equal(t, "TEXT", ctype)
+			require.Equal(t, 0, notnull, "trace_json must be nullable")
+			found = true
+		}
+	}
+	require.True(t, found, "trace_json column missing from predictions")
+}
+
+func TestMigrateIsIdempotent(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "wcp_test.db")
+	s1, err := Open(dbPath)
+	require.NoError(t, err)
+	require.NoError(t, s1.Close())
+
+	// Re-open — must not error on the second migration pass.
+	s2, err := Open(dbPath)
+	require.NoError(t, err)
+	require.NoError(t, s2.Close())
 }
 
 func TestTeamUpsertAndGet(t *testing.T) {
@@ -176,6 +217,66 @@ func TestPredictionVariantDefaultsToFull(t *testing.T) {
 	require.Equal(t, "full", list[1].Variant)
 }
 
+func TestPredictionTraceJSONRoundTrip(t *testing.T) {
+	s, _ := Open(filepath.Join(t.TempDir(), "wcp.db"))
+	defer s.Close()
+
+	require.NoError(t, s.UpsertTeam(Team{Code: "ARG", Name: "Argentina"}))
+	require.NoError(t, s.UpsertTeam(Team{Code: "SAU", Name: "Saudi Arabia"}))
+	require.NoError(t, s.UpsertMatch(Match{
+		ID: "m1", HomeTeamCode: "ARG", AwayTeamCode: "SAU",
+		KickoffUTC: "2026-06-25T11:00:00Z", Stage: "group",
+	}))
+
+	want := `[{"kind":"odds","ok":false,"error":"x"}]`
+	id, err := s.InsertPrediction(Prediction{
+		MatchID:         "m1",
+		CreatedAt:       "2026-06-25T10:30:00Z",
+		Trigger:         "on_demand",
+		Confidence:      "low",
+		PredictedWinner: "ARG",
+		PredictedScore:  "1-0",
+		WinProbability:  0.55,
+		Reasoning:       "n/a",
+		InputsJSON:      "{}",
+		RenderedPrompt:  "",
+		ModelID:         "test-model",
+		PromptVersion:   "v1",
+		TraceJSON:       want,
+	})
+	require.NoError(t, err)
+	require.Greater(t, id, int64(0))
+
+	preds, err := s.ListPredictionsByMatch("m1")
+	require.NoError(t, err)
+	require.Len(t, preds, 1)
+	require.Equal(t, want, preds[0].TraceJSON)
+}
+
+func TestPredictionTraceJSONIsNullableWhenOmitted(t *testing.T) {
+	s, _ := Open(filepath.Join(t.TempDir(), "wcp.db"))
+	defer s.Close()
+
+	require.NoError(t, s.UpsertTeam(Team{Code: "ARG", Name: "Argentina"}))
+	require.NoError(t, s.UpsertTeam(Team{Code: "SAU", Name: "Saudi Arabia"}))
+	require.NoError(t, s.UpsertMatch(Match{
+		ID: "m2", HomeTeamCode: "ARG", AwayTeamCode: "SAU",
+		KickoffUTC: "2026-06-25T11:00:00Z", Stage: "group",
+	}))
+
+	_, err := s.InsertPrediction(Prediction{
+		MatchID: "m2", CreatedAt: "x", Trigger: "on_demand", Confidence: "low",
+		PredictedWinner: "ARG", PredictedScore: "1-0", WinProbability: 0.5,
+		Reasoning: "", InputsJSON: "{}", RenderedPrompt: "", ModelID: "m",
+		PromptVersion: "v", // TraceJSON omitted on purpose
+	})
+	require.NoError(t, err)
+
+	preds, _ := s.ListPredictionsByMatch("m2")
+	require.Len(t, preds, 1)
+	require.Equal(t, "", preds[0].TraceJSON, "missing trace must read as empty string")
+}
+
 func TestOpenIsIdempotentWithMigrations(t *testing.T) {
 	// Open the same DB file twice in sequence to confirm the ALTER TABLE
 	// migration handles the "column already exists" case without erroring.
@@ -214,4 +315,64 @@ func TestExportJSON(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(body), `"matches"`)
 	require.Contains(t, string(body), `"ARG"`)
+}
+
+func TestExportJSONIncludesTrace(t *testing.T) {
+	s, _ := Open(filepath.Join(t.TempDir(), "wcp.db"))
+	defer s.Close()
+	require.NoError(t, s.UpsertTeam(Team{Code: "ARG", Name: "Argentina"}))
+	require.NoError(t, s.UpsertTeam(Team{Code: "SAU", Name: "Saudi Arabia"}))
+	require.NoError(t, s.UpsertMatch(Match{
+		ID: "m1", HomeTeamCode: "ARG", AwayTeamCode: "SAU",
+		KickoffUTC: "2026-06-25T11:00:00Z", Stage: "group",
+	}))
+
+	traceArr := `[{"kind":"odds","ok":true,"started_at":"2026-06-25T10:30:00.000Z","duration_ms":380,"error":"","snippet":"bookmaker=x"}]`
+	_, err := s.InsertPrediction(Prediction{
+		MatchID: "m1", CreatedAt: "x", Trigger: "on_demand", Confidence: "high",
+		PredictedWinner: "ARG", PredictedScore: "2-0", WinProbability: 0.7,
+		Reasoning: "r", InputsJSON: "{}", RenderedPrompt: "", ModelID: "m",
+		PromptVersion: "v", TraceJSON: traceArr,
+	})
+	require.NoError(t, err)
+
+	path := filepath.Join(t.TempDir(), "out.json")
+	require.NoError(t, s.ExportJSON(path))
+
+	raw, _ := os.ReadFile(path)
+	var payload map[string]any
+	require.NoError(t, json.Unmarshal(raw, &payload))
+
+	matches := payload["matches"].([]any)
+	preds := matches[0].(map[string]any)["predictions"].([]any)
+	pred := preds[0].(map[string]any)
+	require.NotNil(t, pred["trace"])
+	trace := pred["trace"].([]any)
+	require.Len(t, trace, 1)
+	require.Equal(t, "odds", trace[0].(map[string]any)["kind"])
+}
+
+func TestExportJSONEmitsNullTraceWhenAbsent(t *testing.T) {
+	s, _ := Open(filepath.Join(t.TempDir(), "wcp.db"))
+	defer s.Close()
+	require.NoError(t, s.UpsertTeam(Team{Code: "ARG", Name: "Argentina"}))
+	require.NoError(t, s.UpsertTeam(Team{Code: "SAU", Name: "Saudi Arabia"}))
+	require.NoError(t, s.UpsertMatch(Match{
+		ID: "m1", HomeTeamCode: "ARG", AwayTeamCode: "SAU",
+		KickoffUTC: "2026-06-25T11:00:00Z", Stage: "group",
+	}))
+	_, err := s.InsertPrediction(Prediction{
+		MatchID: "m1", CreatedAt: "x", Trigger: "on_demand", Confidence: "low",
+		PredictedWinner: "ARG", PredictedScore: "1-0", WinProbability: 0.5,
+		Reasoning: "", InputsJSON: "{}", RenderedPrompt: "", ModelID: "m",
+		PromptVersion: "v", // TraceJSON empty
+	})
+	require.NoError(t, err)
+
+	path := filepath.Join(t.TempDir(), "out.json")
+	require.NoError(t, s.ExportJSON(path))
+
+	raw, _ := os.ReadFile(path)
+	// Confirm `"trace": null` appears — we want an explicit null, not omitted.
+	require.Contains(t, string(raw), `"trace": null`)
 }

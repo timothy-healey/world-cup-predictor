@@ -1,6 +1,7 @@
 package odds
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/timhealey/world-cup-predictor/backend/internal/ratelimit"
+	"github.com/timhealey/world-cup-predictor/backend/internal/trace"
 )
 
 // OddsRateLimit is the most recent rate-limit observation from the-odds-api.
@@ -105,11 +107,18 @@ func (c *Client) GetForMatch(ctx context.Context, homeName, awayName, kickoffUTC
 	if err != nil {
 		return Odds{}, err
 	}
+
+	trace.HTTPStart("odds", "GET", u)
+	start := time.Now()
 	resp, err := c.httpc.Do(req)
 	if err != nil {
+		trace.HTTPError("odds", time.Since(start), err)
 		return Odds{}, err
 	}
 	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	trace.HTTPEnd("odds", resp.StatusCode, time.Since(start), len(body))
 
 	// Capture rate-limit headers regardless of status (the-odds-api sets
 	// them on errors too, and we want visibility into "ran out of budget"
@@ -118,12 +127,11 @@ func (c *Client) GetForMatch(ctx context.Context, homeName, awayName, kickoffUTC
 	c.captureRateLimit(resp.Header)
 
 	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
 		return Odds{}, fmt.Errorf("odds api %d: %s", resp.StatusCode, string(body))
 	}
 
 	var events []rawEvent
-	if err := json.NewDecoder(resp.Body).Decode(&events); err != nil {
+	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&events); err != nil {
 		return Odds{}, err
 	}
 	for _, e := range events {

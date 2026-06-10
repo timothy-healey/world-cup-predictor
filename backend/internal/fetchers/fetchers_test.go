@@ -1,6 +1,7 @@
 package fetchers
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/timhealey/world-cup-predictor/backend/internal/claudec"
 	"github.com/timhealey/world-cup-predictor/backend/internal/store"
+	"github.com/timhealey/world-cup-predictor/backend/internal/trace"
 )
 
 func TestLineupFetcherConfirmedXI(t *testing.T) {
@@ -93,4 +95,43 @@ func TestContextFetcherWithHistory(t *testing.T) {
 	require.Contains(t, ctx.TournamentContext, "ARG")
 	require.Contains(t, ctx.TournamentContext, "MEX")
 	require.Contains(t, ctx.TrackRecord, "1") // some "X of Y"
+}
+
+func TestFetchNewsEmitsWirelogWithNewsNamespace(t *testing.T) {
+	tmp := t.TempDir()
+	fake := filepath.Join(tmp, "claude")
+	require.NoError(t, os.WriteFile(fake, []byte(`#!/bin/sh
+cat <<'EOF'
+{"home_summary":"h","away_summary":"a"}
+EOF
+`), 0o755))
+
+	var buf bytes.Buffer
+	prev := trace.SetWriter(&buf)
+	defer trace.SetWriter(prev)
+
+	d := claudec.NewDriver(fake, "test-model")
+	_, err := FetchNews(t.Context(), d, "Argentina", "Saudi Arabia")
+	require.NoError(t, err)
+	require.Contains(t, buf.String(), "[wcp:news] → claude -p")
+	require.Contains(t, buf.String(), "[wcp:news] ✓ ok")
+}
+
+func TestFetchLineupEmitsWirelogWithLineupNamespace(t *testing.T) {
+	tmp := t.TempDir()
+	fake := filepath.Join(tmp, "claude")
+	require.NoError(t, os.WriteFile(fake, []byte(`#!/bin/sh
+cat <<'EOF'
+{"confirmed":true,"home_xi":[],"away_xi":[],"notes":""}
+EOF
+`), 0o755))
+
+	var buf bytes.Buffer
+	prev := trace.SetWriter(&buf)
+	defer trace.SetWriter(prev)
+
+	d := claudec.NewDriver(fake, "test-model")
+	_, err := FetchLineup(t.Context(), d, "ARG", "SAU")
+	require.NoError(t, err)
+	require.Contains(t, buf.String(), "[wcp:lineup] → claude -p")
 }
