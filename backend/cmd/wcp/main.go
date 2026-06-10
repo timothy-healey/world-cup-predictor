@@ -8,7 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/timhealey/world-cup-predictor/backend/internal/bootstrap"
 	"github.com/timhealey/world-cup-predictor/backend/internal/claudec"
@@ -146,27 +148,38 @@ func runPredict(ctx context.Context, cfg *config.Config, args []string) error {
 	}
 
 	deps := predict.Deps{
-		FetchOdds: func(ctx context.Context, h, a, k string) (any, bool) {
+		FetchOdds: func(ctx context.Context, h, a, k string) (any, error, string) {
 			if oddsClient == nil {
-				return nil, false
+				return nil, errors.New("odds client not configured (ODDS_API_KEY missing)"), ""
 			}
 			o, err := oddsClient.GetForMatch(ctx, h, a, k)
 			if err != nil {
-				return nil, false
+				return nil, err, ""
 			}
-			return o, true
+			snip := fmt.Sprintf("bookmaker=%s home=%.2f away=%.2f draw=%.2f",
+				o.Bookmaker, o.HomeOdds, o.AwayOdds, o.DrawOdds)
+			return o, nil, snip
 		},
-		FetchNews: func(ctx context.Context, d any, h, a string) (fetchers.NewsResult, bool) {
+		FetchNews: func(ctx context.Context, d any, h, a string) (fetchers.NewsResult, error, string) {
 			r, err := fetchers.FetchNews(ctx, driver, h, a)
-			return r, err == nil
+			if err != nil {
+				return r, err, ""
+			}
+			return r, nil, firstLine(r.HomeSummary) + " / " + firstLine(r.AwaySummary)
 		},
-		FetchLineup: func(ctx context.Context, d any, h, a string) (fetchers.LineupResult, bool) {
+		FetchLineup: func(ctx context.Context, d any, h, a string) (fetchers.LineupResult, error, string) {
 			r, err := fetchers.FetchLineup(ctx, driver, h, a)
-			return r, err == nil
+			if err != nil {
+				return r, err, ""
+			}
+			return r, nil, fmt.Sprintf("confirmed=%v notes=%s", r.Confirmed, truncate(r.Notes, 200))
 		},
-		FetchContext: func(s *store.Store, h, a string) (fetchers.ContextResult, bool) {
+		FetchContext: func(s *store.Store, h, a string) (fetchers.ContextResult, error, string) {
 			r, err := fetchers.FetchContext(s, h, a)
-			return r, err == nil
+			if err != nil {
+				return r, err, ""
+			}
+			return r, nil, truncate(r.TournamentContext, 200) + " / " + truncate(r.TrackRecord, 200)
 		},
 	}
 
@@ -309,4 +322,24 @@ func pickNextMatch(s *store.Store) (string, error) {
 		}
 	}
 	return "", errors.New("no upcoming unpredicted matches found")
+}
+
+// firstLine returns s up to the first newline, with leading/trailing whitespace stripped.
+func firstLine(s string) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		return strings.TrimSpace(s[:i])
+	}
+	return strings.TrimSpace(s)
+}
+
+// truncate returns s clipped to n bytes (UTF-8 safe — never splits a rune).
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	cut := n
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut]
 }
