@@ -187,6 +187,12 @@ func runPredict(ctx context.Context, cfg *config.Config, args []string) error {
 }
 
 func runDoctor(ctx context.Context, cfg *config.Config, args []string) error {
+	fs := flag.NewFlagSet("doctor", flag.ExitOnError)
+	dryRunNext := fs.Bool("dry-run-next", false, "run a full prediction on the next match without sending email")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
 	s, err := store.Open(cfg.DBPath)
 	if err != nil {
 		return err
@@ -195,6 +201,12 @@ func runDoctor(ctx context.Context, cfg *config.Config, args []string) error {
 	home, _ := os.UserHomeDir()
 	agentsDir := filepath.Join(home, "Library", "LaunchAgents")
 	fmt.Print(doctor.Run(cfg, s, agentsDir))
+
+	if *dryRunNext {
+		fmt.Println("\n--- dry-run-next ---")
+		// Reuse the predict path; force --no-email by not setting `email`.
+		return runPredict(ctx, cfg, []string{})
+	}
 	return nil
 }
 
