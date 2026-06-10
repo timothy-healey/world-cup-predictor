@@ -6,11 +6,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
+
+	"github.com/timhealey/world-cup-predictor/backend/internal/config"
 )
 
 type command struct {
 	name string
-	run  func(ctx context.Context, args []string) error
+	run  func(ctx context.Context, cfg *config.Config, args []string) error
 	help string
 }
 
@@ -30,6 +32,13 @@ func main() {
 }
 
 func run() error {
+	repoRoot, _ := os.Getwd()
+	cfg, err := config.Load(repoRoot)
+	if err != nil {
+		return err
+	}
+	cfg.PrintWarnings()
+
 	if len(os.Args) < 2 {
 		printUsage()
 		return errors.New("no command given")
@@ -41,14 +50,14 @@ func run() error {
 	}
 	for _, c := range commands {
 		if c.name == name {
-			return c.run(context.Background(), os.Args[2:])
+			return c.run(context.Background(), cfg, os.Args[2:])
 		}
 	}
 	printUsage()
 	return fmt.Errorf("unknown command %q", name)
 }
 
-func stubRun(ctx context.Context, args []string) error {
+func stubRun(ctx context.Context, cfg *config.Config, args []string) error {
 	return errors.New("not implemented yet")
 }
 
