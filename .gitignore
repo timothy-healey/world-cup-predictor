@@ -4,3 +4,7 @@
 backend/predictions.json
 backend/wcp.db
 backend/bin/
+frontend/node_modules
+frontend/dist
+backend/internal/server/dist/*
+!backend/internal/server/dist/.gitkeep
