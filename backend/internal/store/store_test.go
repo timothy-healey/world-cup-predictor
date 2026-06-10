@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -314,4 +315,64 @@ func TestExportJSON(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(body), `"matches"`)
 	require.Contains(t, string(body), `"ARG"`)
+}
+
+func TestExportJSONIncludesTrace(t *testing.T) {
+	s, _ := Open(filepath.Join(t.TempDir(), "wcp.db"))
+	defer s.Close()
+	require.NoError(t, s.UpsertTeam(Team{Code: "ARG", Name: "Argentina"}))
+	require.NoError(t, s.UpsertTeam(Team{Code: "SAU", Name: "Saudi Arabia"}))
+	require.NoError(t, s.UpsertMatch(Match{
+		ID: "m1", HomeTeamCode: "ARG", AwayTeamCode: "SAU",
+		KickoffUTC: "2026-06-25T11:00:00Z", Stage: "group",
+	}))
+
+	traceArr := `[{"kind":"odds","ok":true,"started_at":"2026-06-25T10:30:00.000Z","duration_ms":380,"error":"","snippet":"bookmaker=x"}]`
+	_, err := s.InsertPrediction(Prediction{
+		MatchID: "m1", CreatedAt: "x", Trigger: "on_demand", Confidence: "high",
+		PredictedWinner: "ARG", PredictedScore: "2-0", WinProbability: 0.7,
+		Reasoning: "r", InputsJSON: "{}", RenderedPrompt: "", ModelID: "m",
+		PromptVersion: "v", TraceJSON: traceArr,
+	})
+	require.NoError(t, err)
+
+	path := filepath.Join(t.TempDir(), "out.json")
+	require.NoError(t, s.ExportJSON(path))
+
+	raw, _ := os.ReadFile(path)
+	var payload map[string]any
+	require.NoError(t, json.Unmarshal(raw, &payload))
+
+	matches := payload["matches"].([]any)
+	preds := matches[0].(map[string]any)["predictions"].([]any)
+	pred := preds[0].(map[string]any)
+	require.NotNil(t, pred["trace"])
+	trace := pred["trace"].([]any)
+	require.Len(t, trace, 1)
+	require.Equal(t, "odds", trace[0].(map[string]any)["kind"])
+}
+
+func TestExportJSONEmitsNullTraceWhenAbsent(t *testing.T) {
+	s, _ := Open(filepath.Join(t.TempDir(), "wcp.db"))
+	defer s.Close()
+	require.NoError(t, s.UpsertTeam(Team{Code: "ARG", Name: "Argentina"}))
+	require.NoError(t, s.UpsertTeam(Team{Code: "SAU", Name: "Saudi Arabia"}))
+	require.NoError(t, s.UpsertMatch(Match{
+		ID: "m1", HomeTeamCode: "ARG", AwayTeamCode: "SAU",
+		KickoffUTC: "2026-06-25T11:00:00Z", Stage: "group",
+	}))
+	_, err := s.InsertPrediction(Prediction{
+		MatchID: "m1", CreatedAt: "x", Trigger: "on_demand", Confidence: "low",
+		PredictedWinner: "ARG", PredictedScore: "1-0", WinProbability: 0.5,
+		Reasoning: "", InputsJSON: "{}", RenderedPrompt: "", ModelID: "m",
+		PromptVersion: "v", // TraceJSON empty
+	})
+	require.NoError(t, err)
+
+	path := filepath.Join(t.TempDir(), "out.json")
+	require.NoError(t, s.ExportJSON(path))
+
+	raw, _ := os.ReadFile(path)
+	// Confirm `"trace": null` appears — we want an explicit null, not omitted.
+	require.Contains(t, string(raw), `"trace": null`)
 }

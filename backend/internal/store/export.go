@@ -6,16 +6,17 @@ import (
 )
 
 type ExportPrediction struct {
-	ID              int64   `json:"id"`
-	CreatedAt       string  `json:"created_at"`
-	Trigger         string  `json:"trigger"`
-	Confidence      string  `json:"confidence"`
-	PredictedWinner string  `json:"predicted_winner"`
-	PredictedScore  string  `json:"predicted_score"`
-	WinProbability  float64 `json:"win_probability"`
-	Reasoning       string  `json:"reasoning"`
-	ModelID         string  `json:"model_id"`
-	Variant         string  `json:"variant"`
+	ID              int64            `json:"id"`
+	CreatedAt       string           `json:"created_at"`
+	Trigger         string           `json:"trigger"`
+	Confidence      string           `json:"confidence"`
+	PredictedWinner string           `json:"predicted_winner"`
+	PredictedScore  string           `json:"predicted_score"`
+	WinProbability  float64          `json:"win_probability"`
+	Reasoning       string           `json:"reasoning"`
+	ModelID         string           `json:"model_id"`
+	Variant         string           `json:"variant"`
+	Trace           *json.RawMessage `json:"trace"` // pointer so encoding/json emits null for nil
 }
 
 type ExportMatch struct {
@@ -62,12 +63,17 @@ func (s *Store) ExportJSON(path string) error {
 			Predictions: []ExportPrediction{},
 		}
 		for _, p := range preds {
-			em.Predictions = append(em.Predictions, ExportPrediction{
+			ep := ExportPrediction{
 				ID: p.ID, CreatedAt: p.CreatedAt, Trigger: p.Trigger,
 				Confidence: p.Confidence, PredictedWinner: p.PredictedWinner,
 				PredictedScore: p.PredictedScore, WinProbability: p.WinProbability,
 				Reasoning: p.Reasoning, ModelID: p.ModelID, Variant: p.Variant,
-			})
+			}
+			if p.TraceJSON != "" {
+				raw := json.RawMessage(p.TraceJSON)
+				ep.Trace = &raw
+			}
+			em.Predictions = append(em.Predictions, ep)
 		}
 		payload.Matches = append(payload.Matches, em)
 	}
