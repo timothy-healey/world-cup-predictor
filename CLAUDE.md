@@ -105,8 +105,11 @@ The `predictions` table has a `variant TEXT NOT NULL DEFAULT 'full'` column adde
 2. Add a fixture under `backend/testdata/` if it has a wire format.
 3. Add tests in `<name>_test.go` using `httptest.NewServer` against the fixture.
 4. If the fetcher captures rate-limit info, call `ratelimit.Record<Source>(...)` after each request.
-5. Wire it into `backend/internal/predict/pipeline.go::Deps` as a new field, populate it in `runPredict` in `main.go`, and inject a zero-value fake in `pipeline_test.go`.
-6. If the fetcher's failure should affect the confidence flag, extend `predict.Inputs` and `predict.Confidence`.
+5. The HTTP or subprocess call site must emit wire-level logs via `internal/trace`. For HTTP: wrap `httpc.Do` with `trace.HTTPStart` / `trace.HTTPEnd` / `trace.HTTPError`. For `claude -p`: use `trace.SubprocessStart` / `trace.SubprocessEnd` / `trace.SubprocessError`. Pass a short namespace string that matches the fetcher's trace `kind` (e.g. `"odds"`, `"news"`).
+6. Wire it into `backend/internal/predict/pipeline.go::Deps` as a new field with signature `(data, err, snippet)`. The closure in `cmd/wcp/main.go::runPredict` must produce a short, human-readable snippet on success (≤400 chars — truncation is handled by `trace.Recorder`); return `""` on failure and let the error string carry the diagnostic. See `internal/trace/recorder.go` for the snippet conventions used by the existing fetchers.
+7. If the fetcher's failure should affect the confidence flag, extend `predict.Inputs` and `predict.Confidence`.
+8. Extend `internal/trace.kinds` to include the new fetcher's kind so the trace array picks up a slot for it. If the fetcher is conditional (only runs in some flows), decide whether its absence reads as `ok: false` with a specific `error` string, or whether you skip the `Start` call entirely (which surfaces as `error: "not run"` in the trace). Adjust the frontend's `N/total` pill expectations accordingly.
+9. Inject a fake into `pipeline_test.go` with the new `(data, err, snippet)` signature.
 
 ## Adding a new CLI subcommand
 
