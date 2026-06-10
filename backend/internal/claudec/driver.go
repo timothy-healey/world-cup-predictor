@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/timhealey/world-cup-predictor/backend/internal/trace"
 )
 
 type Driver struct {
@@ -74,21 +76,33 @@ func (d *Driver) invoke(ctx context.Context, prompt string) (Result, error) {
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return Result{}, fmt.Errorf("claude invoke: %w (stderr: %s)", err, strings.TrimSpace(stderr.String()))
+
+	trace.SubprocessStart("predict", len(prompt))
+	start := time.Now()
+	runErr := cmd.Run()
+	dur := time.Since(start)
+	if runErr != nil {
+		wrapped := fmt.Errorf("claude invoke: %w (stderr: %s)", runErr, strings.TrimSpace(stderr.String()))
+		trace.SubprocessError("predict", dur, wrapped)
+		return Result{}, wrapped
 	}
+	trace.SubprocessEnd("predict", dur, stdout.Len())
+
 	out := stdout.Bytes()
 	// Find JSON in the output (claude may emit prefix/suffix text).
-	start := bytes.IndexByte(out, '{')
+	startIdx := bytes.IndexByte(out, '{')
 	end := bytes.LastIndexByte(out, '}')
-	if start < 0 || end <= start {
+	if startIdx < 0 || end <= startIdx {
+		trace.SubprocessError("predict", dur, errMalformedJSON)
 		return Result{}, errMalformedJSON
 	}
 	var r Result
-	if err := json.Unmarshal(out[start:end+1], &r); err != nil {
+	if err := json.Unmarshal(out[startIdx:end+1], &r); err != nil {
+		trace.SubprocessError("predict", dur, errMalformedJSON)
 		return Result{}, errMalformedJSON
 	}
 	if r.Winner == "" || r.PredictedScore == "" {
+		trace.SubprocessError("predict", dur, errMalformedJSON)
 		return Result{}, errMalformedJSON
 	}
 	return r, nil
