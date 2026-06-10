@@ -10,6 +10,7 @@ import { stageLabel } from "../lib/stage";
 
 interface Props {
   match: Match;
+  teamName: (code: string) => string;
 }
 
 interface ActualOutcome {
@@ -25,7 +26,7 @@ function verdict(p: Prediction, actual: ActualOutcome) {
   return { tone: "wrong" as const, label: "Wrong" };
 }
 
-export function PastMatchCard({ match }: Props) {
+export function PastMatchCard({ match, teamName }: Props) {
   const winner = actualWinnerCode(match);
   if (winner === null) return null;
   const score = formatScore(match.home_score, match.away_score);
@@ -50,9 +51,9 @@ export function PastMatchCard({ match }: Props) {
             {formatKickoff(match.kickoff_utc)} · {stageLabel(match.stage)}
           </div>
           <div className="mt-1.5 font-display text-2xl font-extrabold uppercase leading-none tracking-display text-ink">
-            {flagFor(match.home_team_code)} {match.home_team_code}
+            {flagFor(match.home_team_code)} {teamName(match.home_team_code)}
             <span className="mx-2 text-[0.65em] font-bold text-ink-4">vs</span>
-            {flagFor(match.away_team_code)} {match.away_team_code}
+            {flagFor(match.away_team_code)} {teamName(match.away_team_code)}
           </div>
           <div className="mt-3 font-display text-3xl font-black leading-none text-ink">
             {formatScore(match.home_score, match.away_score)}
@@ -79,7 +80,7 @@ export function PastMatchCard({ match }: Props) {
                         {formatTimestamp(p.created_at)}
                       </span>
                       <span className="font-display text-base font-extrabold uppercase text-ink">
-                        {p.predicted_winner} {p.predicted_score}
+                        {teamName(p.predicted_winner)} {p.predicted_score}
                       </span>
                       <Badge tone={confidenceBadge(p.confidence).tone}>
                         {confidenceBadge(p.confidence).label}
