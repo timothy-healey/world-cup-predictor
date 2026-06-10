@@ -14,6 +14,7 @@ import (
 	"github.com/timhealey/world-cup-predictor/backend/internal/config"
 	"github.com/timhealey/world-cup-predictor/backend/internal/fdorg"
 	"github.com/timhealey/world-cup-predictor/backend/internal/fetchers"
+	"github.com/timhealey/world-cup-predictor/backend/internal/mailer"
 	"github.com/timhealey/world-cup-predictor/backend/internal/odds"
 	"github.com/timhealey/world-cup-predictor/backend/internal/predict"
 	"github.com/timhealey/world-cup-predictor/backend/internal/store"
@@ -170,8 +171,16 @@ func runPredict(ctx context.Context, cfg *config.Config, args []string) error {
 	}
 
 	if email {
-		// Implemented in the mailer task. For now, no-op with a warning if not yet wired.
-		fmt.Println("(email send: pending mailer task)")
+		if !cfg.EmailEnabled() {
+			fmt.Fprintln(os.Stderr, "[warn] email requested but SMTP not configured")
+		} else {
+			m, _ := s.GetMatch(matchID)
+			subject, body := mailer.RenderEmail(m, rec)
+			mail := mailer.New(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPassword, cfg.NotificationTo)
+			if err := mail.Send(subject, body); err != nil {
+				fmt.Fprintf(os.Stderr, "[warn] email send: %v\n", err)
+			}
+		}
 	}
 	return nil
 }
