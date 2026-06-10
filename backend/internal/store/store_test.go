@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
@@ -21,6 +22,45 @@ func TestOpenAppliesSchema(t *testing.T) {
 	)
 	require.NoError(t, row.Scan(&count))
 	require.Equal(t, 3, count)
+}
+
+func TestMigrateAddsTraceJSONColumn(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "wcp_test.db")
+	s, err := Open(dbPath)
+	require.NoError(t, err)
+	defer s.Close()
+
+	// Confirm the column exists on the predictions table.
+	rows, err := s.DB().Query(`PRAGMA table_info(predictions)`)
+	require.NoError(t, err)
+	defer rows.Close()
+
+	found := false
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dflt sql.NullString
+		require.NoError(t, rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk))
+		if name == "trace_json" {
+			require.Equal(t, "TEXT", ctype)
+			require.Equal(t, 0, notnull, "trace_json must be nullable")
+			found = true
+		}
+	}
+	require.True(t, found, "trace_json column missing from predictions")
+}
+
+func TestMigrateIsIdempotent(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "wcp_test.db")
+	s1, err := Open(dbPath)
+	require.NoError(t, err)
+	require.NoError(t, s1.Close())
+
+	// Re-open — must not error on the second migration pass.
+	s2, err := Open(dbPath)
+	require.NoError(t, err)
+	require.NoError(t, s2.Close())
 }
 
 func TestTeamUpsertAndGet(t *testing.T) {

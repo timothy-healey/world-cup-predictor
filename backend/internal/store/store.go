@@ -51,6 +51,14 @@ func migrate(db *sql.DB) error {
 			return err
 		}
 	}
+	// predictions.trace_json — per-prediction debug trace (5-entry JSON array).
+	// Nullable: predictions written before this column exists read as null and
+	// the dashboard hides the trace trigger for them.
+	if _, err := db.Exec(`ALTER TABLE predictions ADD COLUMN trace_json TEXT`); err != nil {
+		if !isDuplicateColumnErr(err) {
+			return err
+		}
+	}
 	return nil
 }
 
