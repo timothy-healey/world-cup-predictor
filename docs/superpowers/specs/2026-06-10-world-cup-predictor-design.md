@@ -399,6 +399,56 @@ The `Prediction` record is read by both the Go backend (when it writes the row) 
 
 Drift between the two is caught at build time.
 
+## Frontend
+
+Desktop-first React + Vite + TypeScript app served by `wcp serve` (or `vite preview`) on localhost. Three tabs in a single-page layout; no router needed initially. Reads `predictions.json` and a derived `tournament.json` (teams, matches, results) as static assets; calls back to the local Go HTTP server for the on-demand "Predict now" action.
+
+### Tabs
+
+**1. Dashboard** — the always-on landing view:
+- **Track record** — 4 stat tiles: predictions with results / winner accuracy / exact score accuracy / average confidence
+- **Upcoming matches** — compact cards for the next ~3 matches, ordered by soonest kick-off. Each card shows when, teams, group/venue, a status badge (`T-30 scheduled` / `Predicted · <confidence>`), and a per-card **Predict now** / **Re-predict** button (the predict action lives with each match, not in the header)
+- **Tournament context** — switches based on stage:
+  - **Group stage**: a 4×3 grid of all 12 group standings, with the top 2 in each marked as auto-advancing
+  - **Knockouts**: a horizontal bracket diagram (R32 → R16 → QF → SF → Final) with each cell showing teams, scores or kickoff time, and the prediction verdict underneath (correct ✓ / wrong ✗ / pending)
+
+**2. Upcoming** — full list of all upcoming matches over the next 7 days, sorted by soonest kick-off by default (also sortable latest-first). Filterable by team. Each card is full-width and shows either:
+- **A prediction with reasoning** (if one has been made) — winner / score / win probability / confidence badge, with reasoning rendered as bullet points, plus a Re-predict button
+- **A "scheduled, no prediction yet" block** — explains when the launchd agent will fire, plus a Predict now button
+
+**3. Past results** — completed matches in reverse chronological order. Filterable by team and by correctness (All / Correct / Wrong). Each card shows:
+- **Actual result** on the left (green-tinted if any of the predictions was correct, red-tinted if all were wrong)
+- **Predictions list** on the right — one row per prediction (multiple if the user re-predicted), each with its confidence badge, trigger source, and ✓/✗ marker
+- **Reasoning for the latest prediction** below, rendered as bullet points
+
+### Bracket layout
+
+Five flex columns side-by-side: R32 (16 matches) / R16 (8) / QF (4) / SF (2) / Final (1). Each column uses `justify-content: space-around` with a shared min-height, so cells in later rounds naturally align between their feeding matches without hard-coded margins. The third-place playoff appears as a separate card below the main bracket. Each match cell shows teams, scores (or scheduled time), and the prediction verdict.
+
+### Styling and assets
+
+The full visual system lives in [DESIGN.md](../../../DESIGN.md). The strategic direction (audience, anti-references, design principles) lives in [PRODUCT.md](../../../PRODUCT.md). Implementation reads tokens from there; what follows is a summary.
+
+- **Palette name: Floodlight.** Single light theme on warm cream (`#FAF5EB` background, `#FFFCF5` surface). Identity is **magenta** (`#DD2680`, used on stage labels, winner emphasis, focus rings) plus **mustard** (`#F0BA2C`, used as text on dark CTAs and on the win-probability data point). Warm dark ink (`#1B0E12`), never pure black. See DESIGN.md for the full token list with OKLCH values.
+- **Typography**: **Big Shoulders Display** (weights 700/800/900) for matchups, scorelines, stat numbers, group names, brand title. **Inter** (400/500/600/700) for everything else. Both via Google Fonts. Stage labels are uppercase, letterspaced, in magenta.
+- **Tailwind CSS** for styling, configured to consume the DESIGN.md tokens (palette as `colors.*`, type scale as `fontSize.*`, spacing as `spacing.*`). No bespoke utility classes.
+- **Icons**: inline SVG (Lucide-style stroke, 2-2.4px). Set used: `zap`, `refresh`, `check`, `x`, `clock`. Country flags use emoji — the only emoji in the app.
+- **Outcome semantics**: green = correct / advancing; red = wrong / eliminated; mustard-soft = medium confidence; indigo (`#4A6BD1`) = scheduled-not-yet-run. Every outcome pairs color with an icon, never color alone.
+- **No nested cards.** Embedded prediction-details blocks use the sunk-surface token (`#F3EBD8`) plus a dashed top divider, not a second card border.
+- **Padding varies by component weight.** Prediction cards 18-22px, compact match cards 14-18px, stat tiles 14-16px, group tables 10-14px. Same-padding-everywhere is a banned reflex.
+- **Light theme only for v1.** Desktop browser context, daytime check-ins. Dark mode would require its own design pass and is out of scope.
+
+### Data flow
+
+- On load, fetch `/predictions.json` and `/tournament.json` (both written by the Go backend to `frontend/public/` after every prediction or result refresh)
+- Poll for updates every 60 seconds with cache-busting query string
+- "Predict now" / "Re-predict" buttons → `POST 127.0.0.1:<port>/predict?match=<id>` to the local Go server. Server runs the prediction, exports JSON, frontend re-fetches
+- If `wcp serve` isn't running, the predict buttons are disabled with a tooltip explaining how to start it. The static dashboard still renders fully against the committed JSON
+
+### Type sharing
+
+The frontend reads `Prediction`, `Match`, and `Team` shapes from the schema generator (see "Type sharing between Go and React" above), so any structural change in the Go store propagates to TypeScript at build time.
+
 ## Cost summary
 
 | Item | Cost |
@@ -414,4 +464,4 @@ Drift between the two is caught at build time.
 
 - **Email provider lock-in.** Starting with Gmail SMTP for simplicity; if the user later wants Resend or AWS SES, the `mailer` package is small enough to swap.
 - **Dashboard hosting.** The static frontend can be served by `wcp serve` locally during development. If the user wants it accessible from a phone, deploy `frontend/dist` to GitHub Pages or Vercel post-tournament with no code changes — the JSON it reads can be committed.
-- **Knockout bracket visualization.** A nice-to-have for v2; the dashboard initially shows a flat chronological list of matches.
+- **Third-place playoff.** Treated as a leaf in the data model (just another match) and rendered as a separate card under the main bracket on the dashboard. No special-casing in the predictor.
