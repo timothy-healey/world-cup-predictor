@@ -6,6 +6,7 @@ import { formatKickoff, formatScore, formatTimestamp } from "../lib/format";
 import { confidenceBadge } from "../lib/confidence";
 import { actualWinnerCode } from "../lib/outcome";
 import { parseReasoning } from "../lib/reasoning";
+import { stageLabel } from "../lib/stage";
 
 interface Props {
   match: Match;
@@ -46,9 +47,9 @@ export function PastMatchCard({ match }: Props) {
       <div className="grid grid-cols-[1fr_2fr] gap-6">
         <div>
           <div className="text-xs font-semibold uppercase tracking-label text-ink-3">
-            {formatKickoff(match.kickoff_utc)} · {match.stage}
+            {formatKickoff(match.kickoff_utc)} · {stageLabel(match.stage)}
           </div>
-          <div className="mt-1.5 font-display text-[28px] font-extrabold uppercase leading-none tracking-display text-ink">
+          <div className="mt-1.5 font-display text-2xl font-extrabold uppercase leading-none tracking-display text-ink">
             {flagFor(match.home_team_code)} {match.home_team_code}
             <span className="mx-2 text-[0.65em] font-bold text-ink-4">vs</span>
             {flagFor(match.away_team_code)} {match.away_team_code}

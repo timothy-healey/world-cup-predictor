@@ -1,6 +1,8 @@
 import type { Match } from "../types/api";
 import { trackRecord } from "../lib/trackRecord";
 
+const STATS_GRID = "2.4fr 1fr 1fr 1fr";
+
 interface Props {
   matches: Match[];
 }
@@ -27,18 +29,18 @@ export function TrackRecord({ matches }: Props) {
   return (
     <section
       className="mb-8 grid items-end gap-0 rounded-lg border bg-surface px-7 py-6"
-      style={{ gridTemplateColumns: "2.4fr 1fr 1fr 1fr" }}
+      style={{ gridTemplateColumns: STATS_GRID }}
     >
       <div>
         <div className="mb-1.5 text-xs font-semibold uppercase tracking-label text-ink-3">
           Winner accuracy
         </div>
-        <div className="flex items-baseline gap-3 font-display text-[88px] font-black leading-[0.9] text-ink">
+        <div className="flex items-baseline gap-3 font-display text-display-jumbo font-black text-ink">
           <span className="text-primary">
             {winner.value}
-            {winner.unit && <span className="text-[48px]">{winner.unit}</span>}
+            {winner.unit && <span className="text-display-xl">{winner.unit}</span>}
           </span>
-          <span className="text-[32px] font-extrabold text-ink-3">
+          <span className="text-display-md font-extrabold text-ink-3">
             {r.winnerCorrect} of {r.completed}
           </span>
         </div>
@@ -81,10 +83,10 @@ function SupStat({
 }) {
   return (
     <div className="border-l pl-6">
-      <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-label text-ink-3">
+      <div className="mb-1.5 text-2xs font-semibold uppercase tracking-label text-ink-3">
         {label}
       </div>
-      <div className="font-display text-[28px] font-extrabold leading-none text-ink">
+      <div className="font-display text-2xl font-extrabold leading-none text-ink">
         {value}
         <span className="text-base text-ink-3">{unit}</span>
       </div>

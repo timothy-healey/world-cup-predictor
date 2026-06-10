@@ -20,9 +20,9 @@ export function GroupStandings({ teams, matches }: Props) {
   return (
     <div>
       <header className="mb-3.5 flex items-baseline justify-between">
-        <div className="text-xs font-semibold uppercase tracking-label text-primary">
+        <h2 className="text-xs font-semibold uppercase tracking-label text-primary">
           Group standings
-        </div>
+        </h2>
         <div className="text-sm text-ink-3">
           Knockout bracket replaces this when group stage ends
         </div>
@@ -32,25 +32,25 @@ export function GroupStandings({ teams, matches }: Props) {
           const rows = standings[g];
           return (
             <div key={g} className="rounded-md border bg-surface p-3">
-              <div className="mb-2 flex items-baseline justify-between font-display text-sm font-extrabold uppercase tracking-[0.02em] text-ink">
+              <div className="mb-2 flex items-baseline justify-between font-display text-sm font-extrabold uppercase tracking-label-tight text-ink">
                 <span>Group {g}</span>
-                <span className="font-body text-[10px] font-medium text-ink-3 normal-case tracking-normal">
+                <span className="font-body text-2xs font-medium text-ink-3 normal-case tracking-normal">
                   {matchdayLabel(rows)}
                 </span>
               </div>
               <table className="w-full border-collapse text-xs">
                 <thead>
                   <tr>
-                    <th className="py-1 text-left text-[9px] font-semibold uppercase tracking-[0.05em] text-ink-4">
+                    <th className="py-1 text-left text-3xs font-semibold uppercase tracking-label-mid text-ink-3">
                       Team
                     </th>
-                    <th className="py-1 text-right text-[9px] font-semibold uppercase tracking-[0.05em] text-ink-4">
+                    <th className="py-1 text-right text-3xs font-semibold uppercase tracking-label-mid text-ink-3">
                       MP
                     </th>
-                    <th className="py-1 text-right text-[9px] font-semibold uppercase tracking-[0.05em] text-ink-4">
+                    <th className="py-1 text-right text-3xs font-semibold uppercase tracking-label-mid text-ink-3">
                       GD
                     </th>
-                    <th className="py-1 text-right text-[9px] font-semibold uppercase tracking-[0.05em] text-ink-4">
+                    <th className="py-1 text-right text-3xs font-semibold uppercase tracking-label-mid text-ink-3">
                       Pts
                     </th>
                   </tr>
@@ -60,7 +60,7 @@ export function GroupStandings({ teams, matches }: Props) {
                     <tr key={r.team_code}>
                       <td className="py-1">
                         <span
-                          className={`font-display text-[13px] font-extrabold uppercase tracking-[0.01em] ${
+                          className={`font-display text-2sm font-extrabold uppercase tracking-label-tight ${
                             r.advancing ? "text-ink" : "text-ink-2"
                           }`}
                         >

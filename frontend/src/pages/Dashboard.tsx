@@ -6,14 +6,15 @@ import { GroupStandings } from "../components/GroupStandings";
 import { KnockoutBracket } from "../components/KnockoutBracket";
 import { isGroupStageComplete } from "../lib/stage";
 
+const UPCOMING_GRID = "1.6fr 1fr 1fr";
+
 interface Props {
   data: ExportPayload;
   onPredict: (matchID: string) => void;
   predictDisabled: boolean;
-  predictDisabledReason?: string;
 }
 
-export function Dashboard({ data, onPredict, predictDisabled, predictDisabledReason }: Props) {
+export function Dashboard({ data, onPredict, predictDisabled }: Props) {
   const upcoming = useMemo(() => {
     const now = new Date().toISOString();
     return data.matches
@@ -32,14 +33,14 @@ export function Dashboard({ data, onPredict, predictDisabled, predictDisabledRea
 
       <section className="mb-8">
         <header className="mb-3.5 flex items-baseline justify-between">
-          <div className="text-xs font-semibold uppercase tracking-label text-primary">
+          <h2 className="text-xs font-semibold uppercase tracking-label text-primary">
             Upcoming matches
-          </div>
+          </h2>
           <div className="text-sm text-ink-3">soonest first</div>
         </header>
         <div
           className="grid gap-3.5"
-          style={{ gridTemplateColumns: "1.6fr 1fr 1fr" }}
+          style={{ gridTemplateColumns: UPCOMING_GRID }}
         >
           {upcoming.map((m, idx) => (
             <MatchCard
@@ -49,7 +50,6 @@ export function Dashboard({ data, onPredict, predictDisabled, predictDisabledRea
               groupLabel={teamGroup[m.home_team_code] ? `Group ${teamGroup[m.home_team_code]}` : undefined}
               onPredict={onPredict}
               predictDisabled={predictDisabled}
-              predictDisabledReason={predictDisabledReason}
             />
           ))}
           {upcoming.length === 0 && (

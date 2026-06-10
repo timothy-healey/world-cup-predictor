@@ -33,12 +33,22 @@ export function App() {
   return (
     <>
       <TopBar active={tab} onChange={setTab} matches={data.matches} />
+      {reason && (
+        <div
+          role="status"
+          className="border-b border-pending/30 bg-pending-soft px-7 py-2.5 text-xs text-pending"
+        >
+          <span className="font-semibold uppercase tracking-label-mid">
+            On-demand predictions paused
+          </span>
+          <span className="ml-2 normal-case tracking-normal">{reason}</span>
+        </div>
+      )}
       {tab === "dashboard" && (
         <Dashboard
           data={data}
           onPredict={predict}
           predictDisabled={predictDisabled}
-          predictDisabledReason={reason}
         />
       )}
       {tab === "upcoming" && (
@@ -46,7 +56,6 @@ export function App() {
           data={data}
           onPredict={predict}
           predictDisabled={predictDisabled}
-          predictDisabledReason={reason}
         />
       )}
       {tab === "past" && <Past data={data} />}

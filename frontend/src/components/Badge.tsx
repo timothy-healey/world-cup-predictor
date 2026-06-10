@@ -10,7 +10,7 @@ export type BadgeTone =
 const TONE: Record<BadgeTone, string> = {
   correct: "bg-correct-soft text-correct",
   wrong: "bg-wrong-soft text-wrong",
-  secondary: "bg-secondary-soft text-[#7A5910]",
+  secondary: "bg-secondary-soft text-secondary-ink",
   pending: "bg-pending-soft text-pending",
   neutral: "bg-surface-sunk text-ink-2",
 };
@@ -24,7 +24,7 @@ interface Props {
 export function Badge({ tone, pulse, children }: Props) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-xs font-semibold tracking-[0.02em] ${TONE[tone]}`}
+      className={`inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-xs font-semibold tracking-label-tight ${TONE[tone]}`}
     >
       <span
         className={`h-1.5 w-1.5 rounded-pill bg-current ${pulse ? "animate-pulse" : ""}`}

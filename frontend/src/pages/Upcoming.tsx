@@ -1,19 +1,19 @@
 import { useMemo, useState } from "react";
 import type { ExportPayload, Match } from "../types/api";
 import { PredictionCard } from "../components/PredictionCard";
+import { stageLabel } from "../lib/stage";
 
 interface Props {
   data: ExportPayload;
   onPredict: (matchID: string) => void;
   predictDisabled: boolean;
-  predictDisabledReason?: string;
 }
 
 type SortDir = "soonest" | "latest";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-export function Upcoming({ data, onPredict, predictDisabled, predictDisabledReason }: Props) {
+export function Upcoming({ data, onPredict, predictDisabled }: Props) {
   const [team, setTeam] = useState<string>("all");
   const [sort, setSort] = useState<SortDir>("soonest");
   const [showAll, setShowAll] = useState(false);
@@ -42,9 +42,9 @@ export function Upcoming({ data, onPredict, predictDisabled, predictDisabledReas
   return (
     <div className="bg-bg px-7 py-7">
       <header className="mb-5 flex items-center justify-between">
-        <div className="text-xs font-semibold uppercase tracking-label text-primary">
+        <h2 className="text-xs font-semibold uppercase tracking-label text-primary">
           Upcoming matches
-        </div>
+        </h2>
         <div className="flex items-center gap-3">
           <select
             value={team}
@@ -93,12 +93,11 @@ export function Upcoming({ data, onPredict, predictDisabled, predictDisabledReas
             match={m}
             groupLabel={
               teamGroup[m.home_team_code]
-                ? `Group ${teamGroup[m.home_team_code]} · ${m.stage === "group" ? "Group stage" : m.stage}`
-                : m.stage
+                ? `Group ${teamGroup[m.home_team_code]} · ${stageLabel(m.stage)}`
+                : stageLabel(m.stage)
             }
             onPredict={onPredict}
             predictDisabled={predictDisabled}
-            predictDisabledReason={predictDisabledReason}
           />
         ))
       )}

@@ -13,7 +13,6 @@ interface Props {
   groupLabel?: string;
   onPredict?: (matchID: string) => void;
   predictDisabled?: boolean;
-  predictDisabledReason?: string;
 }
 
 function teamDisplay(code: string): string {
@@ -25,7 +24,6 @@ export function PredictionCard({
   groupLabel,
   onPredict,
   predictDisabled,
-  predictDisabledReason,
 }: Props) {
   const pred = latestPrediction(match);
   const ko = new Date(match.kickoff_utc);
@@ -41,7 +39,7 @@ export function PredictionCard({
               {groupLabel}
             </div>
           )}
-          <div className="mt-1.5 font-display text-[36px] font-extrabold uppercase leading-none tracking-display text-ink">
+          <div className="mt-1.5 font-display text-display-lg font-extrabold uppercase leading-none tracking-display text-ink">
             {homeDisplay}
             <span className="mx-2 text-[0.65em] font-bold text-ink-4">vs</span>
             {awayDisplay}
@@ -63,11 +61,11 @@ export function PredictionCard({
             <Stat
               label="Win prob"
               value={`${Math.round(pred.win_probability * 100)}%`}
-              valueClass="text-secondary [-webkit-text-stroke:0.5px_#1B0E12]"
+              valueClass="text-ink border-b-[3px] border-secondary pb-0.5"
             />
             <div className="flex-1" />
             <div>
-              <div className="mb-1 text-[10px] font-semibold uppercase tracking-label text-ink-3">
+              <div className="mb-1 text-2xs font-semibold uppercase tracking-label text-ink-3">
                 Confidence
               </div>
               <Badge tone={confidenceBadge(pred.confidence).tone}>
@@ -88,7 +86,7 @@ export function PredictionCard({
         </>
       ) : (
         <div className="mt-4 rounded-md border border-dashed bg-surface-sunk px-5 py-4 text-sm text-ink-2">
-          No prediction yet — the scheduled launchd agent will fire at T-30. You can also predict now manually.
+          No prediction yet. The scheduled launchd agent will fire at T-30, or you can predict now manually.
         </div>
       )}
 
@@ -97,7 +95,6 @@ export function PredictionCard({
           <Button
             variant={pred ? "ghost" : "primary"}
             disabled={predictDisabled}
-            title={predictDisabled ? predictDisabledReason : undefined}
             onClick={() => onPredict(match.id)}
           >
             {pred ? (
@@ -119,7 +116,7 @@ export function PredictionCard({
 function Stat({ label, value, valueClass = "text-ink" }: { label: string; value: string; valueClass?: string }) {
   return (
     <div className="flex flex-col gap-1">
-      <div className="text-[10px] font-semibold uppercase tracking-label text-ink-3">{label}</div>
+      <div className="text-2xs font-semibold uppercase tracking-label text-ink-3">{label}</div>
       <div className={`font-display text-3xl font-extrabold leading-none ${valueClass}`}>
         {value}
       </div>
