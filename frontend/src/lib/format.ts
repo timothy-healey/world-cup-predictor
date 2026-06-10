@@ -22,9 +22,14 @@ export function formatCountdown(kickoff: Date, now: Date = new Date()): string {
   if (ms < -60_000) return "started";
   if (ms < 60_000) return "kicking off";
   const totalMin = Math.floor(ms / 60_000);
-  const hours = Math.floor(totalMin / 60);
+  const totalHours = Math.floor(totalMin / 60);
   const minutes = totalMin % 60;
-  if (hours > 0) return `in ${hours}h ${minutes}m`;
+  if (totalHours >= 24) {
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    return `in ${days}d ${hours}h ${minutes}m`;
+  }
+  if (totalHours > 0) return `in ${totalHours}h ${minutes}m`;
   return `in ${minutes}m`;
 }
 

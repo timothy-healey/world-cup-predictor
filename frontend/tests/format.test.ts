@@ -24,6 +24,11 @@ describe("formatTimestamp", () => {
 });
 
 describe("formatCountdown", () => {
+  it("renders days, hours, and minutes when more than a day away", () => {
+    const now = new Date("2026-06-22T10:00:00Z");
+    const ko = new Date("2026-06-25T14:30:00Z");
+    expect(formatCountdown(ko, now)).toBe("in 3d 4h 30m");
+  });
   it("renders hours and minutes when more than an hour away", () => {
     const now = new Date("2026-06-24T22:12:00Z");
     const ko = new Date("2026-06-25T05:00:00Z");
@@ -43,6 +48,11 @@ describe("formatCountdown", () => {
     const now = new Date("2026-06-25T06:00:00Z");
     const ko = new Date("2026-06-25T05:00:00Z");
     expect(formatCountdown(ko, now)).toBe("started");
+  });
+  it("renders exactly 1 day cleanly", () => {
+    const now = new Date("2026-06-24T05:00:00Z");
+    const ko = new Date("2026-06-25T05:00:00Z");
+    expect(formatCountdown(ko, now)).toBe("in 1d 0h 0m");
   });
 });
 
