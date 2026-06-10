@@ -7,10 +7,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/timhealey/world-cup-predictor/backend/internal/bootstrap"
+	"github.com/timhealey/world-cup-predictor/backend/internal/claudec"
 	"github.com/timhealey/world-cup-predictor/backend/internal/config"
 	"github.com/timhealey/world-cup-predictor/backend/internal/fdorg"
+	"github.com/timhealey/world-cup-predictor/backend/internal/fetchers"
+	"github.com/timhealey/world-cup-predictor/backend/internal/odds"
+	"github.com/timhealey/world-cup-predictor/backend/internal/predict"
 	"github.com/timhealey/world-cup-predictor/backend/internal/store"
 )
 
@@ -22,7 +27,7 @@ type command struct {
 
 var commands = []command{
 	{name: "bootstrap", run: runBootstrap, help: "Fetch fixtures, write & load launchd plists"},
-	{name: "predict", run: stubRun, help: "Run a prediction for a specific match or the next one"},
+	{name: "predict", run: runPredict, help: "Predict a specific match or the next upcoming one"},
 	{name: "results", run: stubRun, help: "Pull recent finished match results"},
 	{name: "serve", run: stubRun, help: "Local HTTP server for the dashboard"},
 	{name: "doctor", run: stubRun, help: "Self-audit and config check"},
@@ -85,4 +90,105 @@ func printUsage() {
 		fmt.Fprintf(os.Stderr, "  %-12s  %s\n", c.name, c.help)
 	}
 	_ = flag.CommandLine // silence unused if flag pkg ever needed
+}
+
+func runPredict(ctx context.Context, cfg *config.Config, args []string) error {
+	fs := flag.NewFlagSet("predict", flag.ExitOnError)
+	var matchID, next string
+	var email bool
+	var dryRun bool
+	fs.StringVar(&matchID, "match", "", "match ID to predict (e.g. 2026-06-25-ARG-vs-SAU)")
+	fs.StringVar(&next, "next", "", "next: predict the next upcoming unpredicted match (no value, just present)")
+	fs.BoolVar(&email, "email", false, "send email after prediction")
+	fs.BoolVar(&dryRun, "dry-run", false, "print prompt; do not call Claude; do not write to DB")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	s, err := store.Open(cfg.DBPath)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+
+	if matchID == "" {
+		mid, err := pickNextMatch(s)
+		if err != nil {
+			return err
+		}
+		matchID = mid
+	}
+
+	driver := claudec.NewDriver(cfg.ClaudeBin, "claude-opus-4-7")
+
+	var oddsClient *odds.Client
+	if cfg.OddsEnabled() {
+		oddsClient = odds.NewClient("https://api.the-odds-api.com", cfg.OddsAPIKey)
+	}
+
+	deps := predict.Deps{
+		FetchOdds: func(ctx context.Context, h, a, k string) (any, bool) {
+			if oddsClient == nil {
+				return nil, false
+			}
+			o, err := oddsClient.GetForMatch(ctx, h, a, k)
+			if err != nil {
+				return nil, false
+			}
+			return o, true
+		},
+		FetchNews: func(ctx context.Context, d any, h, a string) (fetchers.NewsResult, bool) {
+			r, err := fetchers.FetchNews(ctx, driver, h, a)
+			return r, err == nil
+		},
+		FetchLineup: func(ctx context.Context, d any, h, a string) (fetchers.LineupResult, bool) {
+			r, err := fetchers.FetchLineup(ctx, driver, h, a)
+			return r, err == nil
+		},
+		FetchContext: func(s *store.Store, h, a string) (fetchers.ContextResult, bool) {
+			r, err := fetchers.FetchContext(s, h, a)
+			return r, err == nil
+		},
+	}
+
+	pipeline := predict.New(s, driver, deps)
+	trigger := "on_demand"
+	if email {
+		trigger = "scheduled"
+	}
+
+	rec, err := pipeline.Run(ctx, matchID, trigger)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("predicted %s — %s (%s confidence)\n", rec.PredictedWinner, rec.PredictedScore, rec.Confidence)
+
+	// Export JSON next to the DB for the dashboard.
+	exportPath := filepath.Join(filepath.Dir(cfg.DBPath), "predictions.json")
+	if err := s.ExportJSON(exportPath); err != nil {
+		fmt.Fprintf(os.Stderr, "[warn] export json: %v\n", err)
+	}
+
+	if email {
+		// Implemented in the mailer task. For now, no-op with a warning if not yet wired.
+		fmt.Println("(email send: pending mailer task)")
+	}
+	return nil
+}
+
+func pickNextMatch(s *store.Store) (string, error) {
+	matches, err := s.ListMatches()
+	if err != nil {
+		return "", err
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	for _, m := range matches {
+		if m.KickoffUTC > now {
+			preds, _ := s.ListPredictionsByMatch(m.ID)
+			if len(preds) == 0 {
+				return m.ID, nil
+			}
+		}
+	}
+	return "", errors.New("no upcoming unpredicted matches found")
 }
