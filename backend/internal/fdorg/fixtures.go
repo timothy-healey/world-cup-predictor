@@ -55,8 +55,9 @@ func (c *Client) GetFixtures(ctx context.Context) ([]Match, error) {
 	out := make([]Match, 0, len(env.Matches))
 	for _, m := range env.Matches {
 		out = append(out, Match{
-			ID:        m.ID,
-			UTCDate:   m.UTCDate,
+			ID:      m.ID,
+			UTCDate: m.UTCDate,
+			// Defensive normalization: football-data.org documents status as already uppercase, but we normalize defensively.
 			Status:    strings.ToUpper(m.Status),
 			Stage:     m.Stage,
 			Group:     m.Group,

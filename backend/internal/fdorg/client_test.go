@@ -49,3 +49,15 @@ func TestClientGetFixturesParsesResponse(t *testing.T) {
 	_, err = json.Marshal(matches)
 	require.NoError(t, err)
 }
+
+func TestClientReturnsErrorOnNon2xx(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"message":"bad key"}`))
+	}))
+	defer srv.Close()
+	c := NewClient(srv.URL, "k")
+	_, err := c.GetTeams(t.Context())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "401")
+}

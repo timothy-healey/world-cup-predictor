@@ -33,7 +33,7 @@ func (c *Client) get(ctx context.Context, path string) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("fdorg %s: %d %s", path, resp.StatusCode, string(body))
 	}
