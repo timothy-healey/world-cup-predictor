@@ -12,6 +12,7 @@ import (
 	"github.com/timhealey/world-cup-predictor/backend/internal/bootstrap"
 	"github.com/timhealey/world-cup-predictor/backend/internal/claudec"
 	"github.com/timhealey/world-cup-predictor/backend/internal/config"
+	"github.com/timhealey/world-cup-predictor/backend/internal/doctor"
 	"github.com/timhealey/world-cup-predictor/backend/internal/fdorg"
 	"github.com/timhealey/world-cup-predictor/backend/internal/fetchers"
 	"github.com/timhealey/world-cup-predictor/backend/internal/mailer"
@@ -31,7 +32,7 @@ var commands = []command{
 	{name: "predict", run: runPredict, help: "Predict a specific match or the next upcoming one"},
 	{name: "results", run: runResults, help: "Pull recent finished match results"},
 	{name: "serve", run: stubRun, help: "Local HTTP server for the dashboard"},
-	{name: "doctor", run: stubRun, help: "Self-audit and config check"},
+	{name: "doctor", run: runDoctor, help: "Self-audit and config check"},
 }
 
 func main() {
@@ -182,6 +183,18 @@ func runPredict(ctx context.Context, cfg *config.Config, args []string) error {
 			}
 		}
 	}
+	return nil
+}
+
+func runDoctor(ctx context.Context, cfg *config.Config, args []string) error {
+	s, err := store.Open(cfg.DBPath)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	home, _ := os.UserHomeDir()
+	agentsDir := filepath.Join(home, "Library", "LaunchAgents")
+	fmt.Print(doctor.Run(cfg, s, agentsDir))
 	return nil
 }
 
