@@ -2,6 +2,8 @@
 
 Visual system for the World Cup Predictor dashboard. Single light theme, "Floodlight" palette (mustard + magenta on cream), Big Shoulders Display + Inter type pairing. Treats the dashboard like a printed tournament programme rather than a sports-media broadcast.
 
+**Canonical visual references** live in [docs/design/](docs/design/README.md) — committed HTML mockups (dashboard, prediction card, knockout bracket) and PNG screenshots. The implementation should match those mockups; the tokens below are the specification they were built from.
+
 ## Visual Theme
 
 **Name:** Floodlight
