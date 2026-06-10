@@ -22,6 +22,11 @@ const agentTmpl = `<?xml version="1.0" encoding="UTF-8"?>
         <string>{{.MatchID}}</string>
         <string>--email</string>
     </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>WCP_DB_PATH</key>
+        <string>{{.DBAbsPath}}</string>
+    </dict>
     <key>StartCalendarInterval</key>
     <dict>
         <key>Year</key>      <integer>{{.Year}}</integer>
@@ -43,31 +48,36 @@ const agentTmpl = `<?xml version="1.0" encoding="UTF-8"?>
 `
 
 type agentData struct {
-	MatchID, BinPath, LogPath, WorkDir string
-	Year, Month, Day, Hour, Minute     int
+	MatchID, BinPath, LogPath, WorkDir, DBAbsPath string
+	Year, Month, Day, Hour, Minute                int
 }
 
 // WriteAgent writes (or overwrites) a launchd LaunchAgent plist that fires
 // at kickoff minus 30 minutes (in local time, computed by launchd at runtime).
-func WriteAgent(dir, binPath, matchID string, kickoff time.Time) (string, error) {
+// workDir is the absolute path of the directory that contains `.env` and
+// `wcp.db` (i.e. the backend dir) — launchd uses it as the process cwd and
+// the plist pins WCP_DB_PATH to <workDir>/wcp.db so scheduled predictions
+// can locate config and database regardless of how launchd resolves cwd.
+func WriteAgent(dir, binPath, matchID, workDir string, kickoff time.Time) (string, error) {
 	t := kickoff.Add(-30 * time.Minute).Local()
 	home, _ := os.UserHomeDir()
-	workDir := filepath.Dir(binPath)
 	logPath := filepath.Join(home, "Library", "Logs", "wcp", matchID+".log")
 	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
 		return "", err
 	}
+	dbAbsPath := filepath.Join(workDir, "wcp.db")
 
 	data := agentData{
-		MatchID: matchID,
-		BinPath: binPath,
-		LogPath: logPath,
-		WorkDir: workDir,
-		Year:    t.Year(),
-		Month:   int(t.Month()),
-		Day:     t.Day(),
-		Hour:    t.Hour(),
-		Minute:  t.Minute(),
+		MatchID:   matchID,
+		BinPath:   binPath,
+		LogPath:   logPath,
+		WorkDir:   workDir,
+		DBAbsPath: dbAbsPath,
+		Year:      t.Year(),
+		Month:     int(t.Month()),
+		Day:       t.Day(),
+		Hour:      t.Hour(),
+		Minute:    t.Minute(),
 	}
 
 	if err := os.MkdirAll(dir, 0o755); err != nil {

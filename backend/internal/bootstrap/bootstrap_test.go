@@ -33,7 +33,8 @@ func TestRunPopulatesTeamsAndMatches(t *testing.T) {
 	c := fdorg.NewClient(srv.URL, "k")
 
 	agentsDir := t.TempDir()
-	require.NoError(t, Run(context.Background(), s, c, agentsDir))
+	workDir := t.TempDir()
+	require.NoError(t, Run(context.Background(), s, c, agentsDir, workDir))
 
 	teams, _ := s.ListTeams()
 	require.Len(t, teams, 2)
@@ -42,7 +43,7 @@ func TestRunPopulatesTeamsAndMatches(t *testing.T) {
 	require.Equal(t, "2026-06-25-ARG-vs-SAU", matches[0].ID)
 
 	// Second run should be a no-op
-	require.NoError(t, Run(context.Background(), s, c, t.TempDir()))
+	require.NoError(t, Run(context.Background(), s, c, t.TempDir(), workDir))
 	teamsAgain, _ := s.ListTeams()
 	require.Len(t, teamsAgain, 2)
 	matchesAgain, _ := s.ListMatches()

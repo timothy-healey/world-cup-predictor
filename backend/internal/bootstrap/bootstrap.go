@@ -13,8 +13,11 @@ import (
 )
 
 // Run fetches teams + fixtures and writes them to the store. Idempotent.
-// agentsDir is reserved for plist writing in the next task.
-func Run(ctx context.Context, s *store.Store, c *fdorg.Client, agentsDir string) error {
+// agentsDir is the LaunchAgents directory for per-match plists.
+// workDir is the absolute path of the backend directory (where .env and
+// wcp.db live); it is baked into each plist so launchd-spawned predictions
+// can locate config + DB regardless of launchd's cwd resolution.
+func Run(ctx context.Context, s *store.Store, c *fdorg.Client, agentsDir, workDir string) error {
 	teams, err := c.GetTeams(ctx)
 	if err != nil {
 		return fmt.Errorf("get teams: %w", err)
@@ -56,7 +59,7 @@ func Run(ctx context.Context, s *store.Store, c *fdorg.Client, agentsDir string)
 			t, err := time.Parse(time.RFC3339, m.UTCDate)
 			if err == nil {
 				binPath, _ := os.Executable()
-				path, err := plist.WriteAgent(agentsDir, binPath, id, t)
+				path, err := plist.WriteAgent(agentsDir, binPath, id, workDir, t)
 				if err == nil {
 					_ = plist.LoadAgent(path) // best-effort; no-op on non-macOS
 				}

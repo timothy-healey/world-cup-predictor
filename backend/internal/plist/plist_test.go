@@ -13,11 +13,12 @@ import (
 func TestWriteAgentEmitsValidPlist(t *testing.T) {
 	dir := t.TempDir()
 	binPath := "/usr/local/bin/wcp"
+	workDir := "/Users/test/world-cup-predictor/backend"
 
 	kickoff, _ := time.Parse(time.RFC3339, "2026-06-25T11:00:00Z")
 	matchID := "2026-06-25-ARG-vs-SAU"
 
-	path, err := WriteAgent(dir, binPath, matchID, kickoff)
+	path, err := WriteAgent(dir, binPath, matchID, workDir, kickoff)
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(dir, "com.wcp."+matchID+".plist"), path)
 
@@ -31,6 +32,11 @@ func TestWriteAgentEmitsValidPlist(t *testing.T) {
 	require.Contains(t, s, matchID)
 	require.Contains(t, s, "--email")
 	require.Contains(t, s, "StartCalendarInterval")
+	require.Contains(t, s, "<key>WorkingDirectory</key>")
+	require.Contains(t, s, workDir)
+	require.Contains(t, s, "<key>EnvironmentVariables</key>")
+	require.Contains(t, s, "<key>WCP_DB_PATH</key>")
+	require.Contains(t, s, filepath.Join(workDir, "wcp.db"))
 	// 30 minutes before 11:00 UTC == 10:30 UTC. Local interpretation is launchd's job
 	// but the values should be there.
 	require.True(t, strings.Contains(s, "<integer>30</integer>") || strings.Contains(s, "<integer>0</integer>"))

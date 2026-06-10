@@ -81,7 +81,11 @@ func runBootstrap(ctx context.Context, cfg *config.Config, args []string) error 
 	c := fdorg.NewClient("https://api.football-data.org", cfg.FootballDataAPIKey)
 	home, _ := os.UserHomeDir()
 	agentsDir := filepath.Join(home, "Library", "LaunchAgents")
-	return bootstrap.Run(ctx, s, c, agentsDir)
+	// Bootstrap is run from the user's shell cwd (the backend directory). Capture
+	// it now and bake it into each per-match plist so launchd-fired predictions
+	// can find .env and wcp.db regardless of launchd's cwd resolution.
+	workDir, _ := os.Getwd()
+	return bootstrap.Run(ctx, s, c, agentsDir, workDir)
 }
 
 func printUsage() {
