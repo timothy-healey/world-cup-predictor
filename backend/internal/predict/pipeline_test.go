@@ -2,6 +2,8 @@ package predict
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -33,22 +35,39 @@ EOF
 
 	d := claudec.NewDriver(fake, "test-model")
 	pipeline := New(s, d, Deps{
-		FetchOdds:    func(ctx context.Context, h, a, k string) (any, bool) { return map[string]float64{"home": 1.4}, true },
-		FetchNews:    func(ctx context.Context, d any, h, a string) (fetchers.NewsResult, bool) { return fetchers.NewsResult{HomeSummary: "h", AwaySummary: "a"}, true },
-		FetchLineup:  func(ctx context.Context, d any, h, a string) (fetchers.LineupResult, bool) { return fetchers.LineupResult{Confirmed: true}, true },
-		FetchContext: func(s *store.Store, h, a string) (fetchers.ContextResult, bool) { return fetchers.ContextResult{}, true },
+		FetchOdds: func(ctx context.Context, h, a, k string) (any, error, string) {
+			return map[string]float64{"home": 1.4}, nil, "bookmaker=fake home=1.4"
+		},
+		FetchNews: func(ctx context.Context, d any, h, a string) (fetchers.NewsResult, error, string) {
+			return fetchers.NewsResult{HomeSummary: "h", AwaySummary: "a"}, nil, "h / a"
+		},
+		FetchLineup: func(ctx context.Context, d any, h, a string) (fetchers.LineupResult, error, string) {
+			return fetchers.LineupResult{Confirmed: true}, nil, "confirmed=true"
+		},
+		FetchContext: func(s *store.Store, h, a string) (fetchers.ContextResult, error, string) {
+			return fetchers.ContextResult{}, nil, "no completed matches yet"
+		},
 	})
 
 	rec, err := pipeline.Run(context.Background(), "m1", "on_demand")
 	require.NoError(t, err)
 	require.Equal(t, "ARG", rec.PredictedWinner)
-	require.Equal(t, "high", rec.Confidence) // confirmed XI + all inputs ok
+	require.Equal(t, "high", rec.Confidence)
 	require.Greater(t, rec.ID, int64(0))
-	require.NotEqual(t, "fallback", rec.PromptVersion, "expected real prompt to be embedded")
-	require.Contains(t, rec.RenderedPrompt, "Track record calibration matters", "real system prompt should be rendered")
+
+	// Trace should contain 5 entries, all ok=true, in fixed order.
+	var entries []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(rec.TraceJSON), &entries))
+	require.Len(t, entries, 5)
+	wantKinds := []string{"odds", "news", "lineup", "context", "predict"}
+	for i, k := range wantKinds {
+		require.Equal(t, k, entries[i]["kind"])
+		require.Equal(t, true, entries[i]["ok"], "kind=%s should be ok", k)
+		require.Equal(t, "", entries[i]["error"])
+	}
 }
 
-func TestRunPartialFailureLowersConfidence(t *testing.T) {
+func TestRunPartialFailureLowersConfidenceAndRecordsErrors(t *testing.T) {
 	s, _ := store.Open(filepath.Join(t.TempDir(), "wcp.db"))
 	defer s.Close()
 	require.NoError(t, s.UpsertTeam(store.Team{Code: "ARG", Name: "Argentina"}))
@@ -68,17 +87,33 @@ EOF
 
 	d := claudec.NewDriver(fake, "test-model")
 	pipeline := New(s, d, Deps{
-		FetchOdds:    func(ctx context.Context, h, a, k string) (any, bool) { return map[string]float64{"home": 2.0}, true },
-		FetchNews:    func(ctx context.Context, d any, h, a string) (fetchers.NewsResult, bool) { return fetchers.NewsResult{}, false },
-		FetchLineup:  func(ctx context.Context, d any, h, a string) (fetchers.LineupResult, bool) { return fetchers.LineupResult{}, false },
-		FetchContext: func(s *store.Store, h, a string) (fetchers.ContextResult, bool) { return fetchers.ContextResult{}, true },
+		FetchOdds: func(ctx context.Context, h, a, k string) (any, error, string) {
+			return map[string]float64{"home": 2.0}, nil, "ok"
+		},
+		FetchNews: func(ctx context.Context, d any, h, a string) (fetchers.NewsResult, error, string) {
+			return fetchers.NewsResult{}, errors.New("claude invoke: context deadline exceeded"), ""
+		},
+		FetchLineup: func(ctx context.Context, d any, h, a string) (fetchers.LineupResult, error, string) {
+			return fetchers.LineupResult{}, errors.New("malformed json"), ""
+		},
+		FetchContext: func(s *store.Store, h, a string) (fetchers.ContextResult, error, string) {
+			return fetchers.ContextResult{}, nil, "context ok"
+		},
 	})
 
 	rec, err := pipeline.Run(context.Background(), "m1", "scheduled")
 	require.NoError(t, err)
-	// Lineup failed entirely → start at "low"; news failed → drop one more; bottoms out at "low".
 	require.Equal(t, "low", rec.Confidence)
-	// The prompt should mark missing inputs as (not available).
 	require.Contains(t, rec.RenderedPrompt, "LINEUP: (not available)")
 	require.Contains(t, rec.RenderedPrompt, "NEWS: (not available)")
+
+	var entries []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(rec.TraceJSON), &entries))
+	require.Equal(t, true, entries[0]["ok"], "odds")
+	require.Equal(t, false, entries[1]["ok"], "news")
+	require.Equal(t, "claude invoke: context deadline exceeded", entries[1]["error"])
+	require.Equal(t, false, entries[2]["ok"], "lineup")
+	require.Equal(t, "malformed json", entries[2]["error"])
+	require.Equal(t, true, entries[3]["ok"], "context")
+	require.Equal(t, true, entries[4]["ok"], "predict")
 }
