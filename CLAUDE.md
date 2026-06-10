@@ -96,6 +96,9 @@ Until the group stage concludes, knockout-round matches in football-data.org's `
 ### Rate-limit state is in-process
 `internal/ratelimit` is process-global. The doctor command's "Rate limits (last observed)" section only shows observations from the current CLI invocation. This is by design — warnings fire at the moment of the breach (during bootstrap, predict, results), which is when they matter. Persisting between invocations would be a small addition (JSON file under the work dir) if it becomes useful.
 
+### `predictions.variant` is a schema down payment
+The `predictions` table has a `variant TEXT NOT NULL DEFAULT 'full'` column added ahead of a planned post-hoc ablation experiment harness. The production pipeline only ever writes `"full"`. Reserved values are `"no-odds"`, `"no-news"`, `"no-lineup"`, `"no-context"` — each replays a finished match against the stored `inputs_json` with that block masked. Until the experiment subcommand lands, **filter to `variant = 'full'` in any new accuracy / track-record query** so non-production rows don't pollute stats. `store.Open` runs an idempotent `ALTER TABLE` to add the column to pre-existing DBs.
+
 ## Adding a new fetcher
 
 1. Create `backend/internal/<name>/<name>.go` with the client struct and method (e.g. `GetForMatch(ctx, ...)`).

@@ -54,6 +54,7 @@ The `claude` CLI must be on PATH and authenticated (`claude login`) under your o
 
 ```
 wcp bootstrap                       # Fetch fixtures, write & load per-match launchd plists
+wcp bootstrap --no-agents           # Fetch fixtures only; skip launchd setup (manual predictions only)
 wcp predict --match <id>            # Predict a specific match. No email by default.
 wcp predict                         # Predict the next upcoming unpredicted match
 wcp predict --match <id> --email    # Force-send the prediction email (launchd uses this)
@@ -61,6 +62,8 @@ wcp results fetch                   # Pull recent finished match results
 wcp doctor                          # Self-audit: config, claude binary, store, agents, rate limits
 wcp doctor --dry-run-next           # Run a real prediction against the next match, no email
 ```
+
+Use `--no-agents` if you don't want predictions to fire automatically — useful on non-macOS clones (no `launchd`), or if you'd rather drive every prediction yourself via `wcp predict` or the dashboard's "Predict now" button.
 
 ## Project structure
 

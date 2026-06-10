@@ -162,6 +162,7 @@ func (p *Pipeline) Run(ctx context.Context, matchID, trigger string) (store.Pred
 		RenderedPrompt:  prompt,
 		ModelID:         p.claude.ModelID(),
 		PromptVersion:   p.promptVersion,
+		Variant:         "full",
 	}
 	id, err := p.store.InsertPrediction(pred)
 	if err != nil {

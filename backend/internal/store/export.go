@@ -15,6 +15,7 @@ type ExportPrediction struct {
 	WinProbability  float64 `json:"win_probability"`
 	Reasoning       string  `json:"reasoning"`
 	ModelID         string  `json:"model_id"`
+	Variant         string  `json:"variant"`
 }
 
 type ExportMatch struct {
@@ -61,7 +62,7 @@ func (s *Store) ExportJSON(path string) error {
 				ID: p.ID, CreatedAt: p.CreatedAt, Trigger: p.Trigger,
 				Confidence: p.Confidence, PredictedWinner: p.PredictedWinner,
 				PredictedScore: p.PredictedScore, WinProbability: p.WinProbability,
-				Reasoning: p.Reasoning, ModelID: p.ModelID,
+				Reasoning: p.Reasoning, ModelID: p.ModelID, Variant: p.Variant,
 			})
 		}
 		payload.Matches = append(payload.Matches, em)

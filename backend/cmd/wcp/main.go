@@ -73,14 +73,23 @@ func stubRun(ctx context.Context, cfg *config.Config, args []string) error {
 }
 
 func runBootstrap(ctx context.Context, cfg *config.Config, args []string) error {
+	fs := flag.NewFlagSet("bootstrap", flag.ExitOnError)
+	noAgents := fs.Bool("no-agents", false, "skip writing per-match launchd plists; predictions must be triggered manually via wcp predict or the dashboard")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
 	s, err := store.Open(cfg.DBPath)
 	if err != nil {
 		return err
 	}
 	defer s.Close()
 	c := fdorg.NewClient("https://api.football-data.org", cfg.FootballDataAPIKey)
-	home, _ := os.UserHomeDir()
-	agentsDir := filepath.Join(home, "Library", "LaunchAgents")
+	agentsDir := ""
+	if !*noAgents {
+		home, _ := os.UserHomeDir()
+		agentsDir = filepath.Join(home, "Library", "LaunchAgents")
+	}
 	// Bootstrap is run from the user's shell cwd (the backend directory). Capture
 	// it now and bake it into each per-match plist so launchd-fired predictions
 	// can find .env and wcp.db regardless of launchd's cwd resolution.

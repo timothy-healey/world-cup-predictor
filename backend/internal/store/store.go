@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -29,7 +30,36 @@ func Open(path string) (*Store, error) {
 	if _, err := db.Exec(schemaSQL); err != nil {
 		return nil, fmt.Errorf("apply schema: %w", err)
 	}
+	if err := migrate(db); err != nil {
+		return nil, fmt.Errorf("migrate: %w", err)
+	}
 	return &Store{db: db}, nil
+}
+
+// migrate runs idempotent ALTER TABLE migrations for columns added after
+// the initial schema. CREATE TABLE IF NOT EXISTS in schema.sql doesn't
+// touch existing tables, so any post-v1 column lives here.
+func migrate(db *sql.DB) error {
+	// predictions.variant — added when ablation experiments were planned.
+	// Default 'full' so any pre-migration row reads as a production prediction.
+	if _, err := db.Exec(`ALTER TABLE predictions ADD COLUMN variant TEXT NOT NULL DEFAULT 'full'`); err != nil {
+		// SQLite returns "duplicate column name" when the column already
+		// exists. modernc.org/sqlite surfaces this as a plain error string;
+		// there's no error code to match against. The column-already-exists
+		// case is the only acceptable failure here.
+		if !isDuplicateColumnErr(err) {
+			return err
+		}
+	}
+	return nil
+}
+
+func isDuplicateColumnErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "duplicate column") || strings.Contains(msg, "already exists")
 }
 
 func (s *Store) DB() *sql.DB  { return s.db }

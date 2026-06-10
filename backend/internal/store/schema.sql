@@ -37,7 +37,12 @@ CREATE TABLE IF NOT EXISTS predictions (
   inputs_json        TEXT NOT NULL,
   rendered_prompt    TEXT NOT NULL,
   model_id           TEXT NOT NULL,
-  prompt_version     TEXT NOT NULL
+  prompt_version     TEXT NOT NULL,
+  -- 'full' = production prediction using all available inputs.
+  -- Other values (e.g. 'no-odds', 'no-news', 'no-lineup', 'no-context') reserved
+  -- for the planned post-hoc experiment harness that re-predicts finished
+  -- matches with masked input subsets to measure per-input contribution.
+  variant            TEXT NOT NULL DEFAULT 'full'
 );
 
 CREATE INDEX IF NOT EXISTS idx_predictions_match ON predictions(match_id, created_at);

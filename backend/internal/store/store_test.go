@@ -137,6 +137,58 @@ func TestPredictionInsertAndListByMatch(t *testing.T) {
 	require.Equal(t, "ARG", list[0].PredictedWinner)
 }
 
+func TestPredictionVariantDefaultsToFull(t *testing.T) {
+	s, _ := Open(filepath.Join(t.TempDir(), "wcp.db"))
+	defer s.Close()
+	require.NoError(t, s.UpsertTeam(Team{Code: "ARG", Name: "Argentina"}))
+	require.NoError(t, s.UpsertTeam(Team{Code: "SAU", Name: "Saudi Arabia"}))
+	require.NoError(t, s.UpsertMatch(Match{
+		ID: "m1", HomeTeamCode: "ARG", AwayTeamCode: "SAU",
+		KickoffUTC: "2026-06-25T11:00:00Z", Stage: "group",
+	}))
+
+	// Insert without setting Variant — should land as "full" on read.
+	_, err := s.InsertPrediction(Prediction{
+		MatchID: "m1", CreatedAt: "2026-06-25T10:30:00Z",
+		Trigger: "scheduled", Confidence: "medium",
+		PredictedWinner: "ARG", PredictedScore: "2-0",
+		WinProbability: 0.71, Reasoning: "x", InputsJSON: "{}",
+		RenderedPrompt: "", ModelID: "test", PromptVersion: "v",
+	})
+	require.NoError(t, err)
+
+	// Insert a second prediction with an explicit non-default variant.
+	_, err = s.InsertPrediction(Prediction{
+		MatchID: "m1", CreatedAt: "2026-06-25T10:35:00Z",
+		Trigger: "on_demand", Confidence: "medium",
+		PredictedWinner: "SAU", PredictedScore: "1-0",
+		WinProbability: 0.5, Reasoning: "ablation", InputsJSON: "{}",
+		RenderedPrompt: "", ModelID: "test", PromptVersion: "v",
+		Variant: "no-odds",
+	})
+	require.NoError(t, err)
+
+	list, err := s.ListPredictionsByMatch("m1")
+	require.NoError(t, err)
+	require.Len(t, list, 2)
+	// List is ordered by created_at DESC, so the no-odds prediction is first.
+	require.Equal(t, "no-odds", list[0].Variant)
+	require.Equal(t, "full", list[1].Variant)
+}
+
+func TestOpenIsIdempotentWithMigrations(t *testing.T) {
+	// Open the same DB file twice in sequence to confirm the ALTER TABLE
+	// migration handles the "column already exists" case without erroring.
+	dbPath := filepath.Join(t.TempDir(), "wcp.db")
+	s1, err := Open(dbPath)
+	require.NoError(t, err)
+	require.NoError(t, s1.Close())
+
+	s2, err := Open(dbPath)
+	require.NoError(t, err)
+	require.NoError(t, s2.Close())
+}
+
 func TestExportJSON(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := Open(filepath.Join(dir, "wcp.db"))
