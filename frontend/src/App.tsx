@@ -2,6 +2,7 @@ import { useState } from "react";
 import { TopBar, type TabId } from "./components/TopBar";
 import { Dashboard } from "./pages/Dashboard";
 import { Upcoming } from "./pages/Upcoming";
+import { Past } from "./pages/Past";
 import { useData } from "./data/useData";
 import { usePredict } from "./data/usePredict";
 
@@ -48,7 +49,7 @@ export function App() {
           predictDisabledReason={reason}
         />
       )}
-      {tab === "past" && <div className="p-7 text-sm text-ink-3">Past results tab coming next…</div>}
+      {tab === "past" && <Past data={data} />}
     </>
   );
 }
