@@ -65,6 +65,28 @@ wcp doctor --dry-run-next           # Run a real prediction against the next mat
 
 Use `--no-agents` if you don't want predictions to fire automatically — useful on non-macOS clones (no `launchd`), or if you'd rather drive every prediction yourself via `wcp predict` or the dashboard's "Predict now" button.
 
+## Dashboard
+
+The web dashboard reads `predictions.json` and lets you trigger predictions on demand.
+
+**During development:**
+```bash
+# Terminal 1: serve the JSON + on-demand predict endpoint
+cd backend && go run ./cmd/wcp serve
+
+# Terminal 2: Vite dev server with hot reload
+cd frontend && npm install && npm run dev
+# Open http://localhost:5173 — proxies /api and /predictions.json to wcp serve
+```
+
+**Production (single binary):**
+```bash
+cd backend && make build && ./bin/wcp serve
+# Open http://localhost:8765
+```
+
+`make build` runs `npm ci && npm run build` against `frontend/`, copies the bundle into `backend/internal/server/dist/`, and embeds it into the `wcp` binary via `//go:embed`. After `make install`, the dashboard ships inside `~/bin/wcp`.
+
 ## Project structure
 
 ```
@@ -87,6 +109,7 @@ world-cup-predictor/
 │   │   ├── plist/                  # launchd .plist writer + launchctl load/unload
 │   │   ├── predict/                # Pipeline orchestration + confidence flag + embedded prompt
 │   │   ├── ratelimit/              # Shared in-process state for rate-limit observations
+│   │   ├── server/                # net/http server for the dashboard (wcp serve)
 │   │   └── store/                  # SQLite store: teams, matches, predictions + predictions.json export
 │   ├── prompts/                    # (Reserved — embedded under internal/predict for now)
 │   ├── testdata/                   # Recorded API responses for fixture-based tests
@@ -99,7 +122,15 @@ world-cup-predictor/
 │   └── superpowers/
 │       ├── specs/                  # Approved design spec
 │       └── plans/                  # Implementation plans
-└── frontend/                       # (Forthcoming — separate plan)
+├── frontend/
+│   ├── src/                       # React components, hooks, lib helpers, types
+│   │   ├── pages/                 # Dashboard / Upcoming / Past
+│   │   ├── components/            # MatchCard / PredictionCard / TrackRecord / etc.
+│   │   ├── lib/                   # format, groups, bracket, trackRecord, confidence
+│   │   └── data/                  # useData (poll), usePredict (POST), flags map
+│   ├── tests/                     # Vitest unit tests for lib/
+│   ├── package.json
+│   └── vite.config.ts
 ```
 
 ## Development
