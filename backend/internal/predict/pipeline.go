@@ -2,9 +2,9 @@ package predict
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -12,6 +12,12 @@ import (
 	"github.com/timhealey/world-cup-predictor/backend/internal/fetchers"
 	"github.com/timhealey/world-cup-predictor/backend/internal/store"
 )
+
+// systemPromptBytes embeds the predict system prompt at build time so the
+// binary is self-contained and works regardless of the cwd it runs from.
+//
+//go:embed predict.md
+var systemPromptBytes []byte
 
 // Deps holds injectable fetcher functions for testing.
 type Deps struct {
@@ -35,12 +41,7 @@ func New(s *store.Store, d *claudec.Driver, deps Deps) *Pipeline {
 }
 
 func loadSystemPrompt() (string, string) {
-	body, err := os.ReadFile("./prompts/predict.md")
-	if err != nil {
-		return "Predict the winner and scoreline as JSON.", "fallback"
-	}
-	// Use a content-hash as the version (cheap, change-detectable).
-	return string(body), fmt.Sprintf("len-%d", len(body))
+	return string(systemPromptBytes), fmt.Sprintf("len-%d", len(systemPromptBytes))
 }
 
 func (p *Pipeline) Run(ctx context.Context, matchID, trigger string) (store.Prediction, error) {
@@ -117,10 +118,30 @@ func (p *Pipeline) Run(ctx context.Context, matchID, trigger string) (store.Pred
 		AwayName:     away.Name,
 		KickoffUTC:   m.KickoffUTC,
 		Stage:        m.Stage,
-		OddsBlock:    blockify(odds.data),
-		NewsBlock:    fmt.Sprintf("Home: %s\nAway: %s", news.data.HomeSummary, news.data.AwaySummary),
-		LineupBlock:  fmt.Sprintf("Confirmed: %v\nNotes: %s", lineup.data.Confirmed, lineup.data.Notes),
-		ContextBlock: context_.data.TournamentContext + "\n\n" + context_.data.TrackRecord,
+		OddsBlock: func() string {
+			if !odds.ok {
+				return ""
+			}
+			return blockify(odds.data)
+		}(),
+		NewsBlock: func() string {
+			if !news.ok {
+				return ""
+			}
+			return fmt.Sprintf("Home: %s\nAway: %s", news.data.HomeSummary, news.data.AwaySummary)
+		}(),
+		LineupBlock: func() string {
+			if !lineup.ok {
+				return ""
+			}
+			return fmt.Sprintf("Confirmed: %v\nNotes: %s", lineup.data.Confirmed, lineup.data.Notes)
+		}(),
+		ContextBlock: func() string {
+			if !context_.ok {
+				return ""
+			}
+			return strings.TrimSpace(context_.data.TournamentContext + "\n\n" + context_.data.TrackRecord)
+		}(),
 	})
 
 	res, err := p.claude.Predict(ctx, prompt)
