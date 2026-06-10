@@ -92,7 +92,16 @@ func runBootstrap(ctx context.Context, cfg *config.Config, args []string) error 
 	// it now and bake it into each per-match plist so launchd-fired predictions
 	// can find .env and wcp.db regardless of launchd's cwd resolution.
 	workDir, _ := os.Getwd()
-	return bootstrap.Run(ctx, s, c, agentsDir, workDir)
+	if err := bootstrap.Run(ctx, s, c, agentsDir, workDir); err != nil {
+		return err
+	}
+	// Refresh predictions.json so the dashboard immediately reflects new teams /
+	// fixtures / group assignments without waiting for the next predict run.
+	exportPath := filepath.Join(filepath.Dir(cfg.DBPath), "predictions.json")
+	if err := s.ExportJSON(exportPath); err != nil {
+		fmt.Fprintf(os.Stderr, "[warn] export json: %v\n", err)
+	}
+	return nil
 }
 
 func printUsage() {
