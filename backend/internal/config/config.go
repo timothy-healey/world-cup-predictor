@@ -33,10 +33,14 @@ func (c *Config) EmailEnabled() bool {
 }
 
 func Load(repoRoot string) (*Config, error) {
-	// Best-effort: load .env from repoRoot or backend/.env if present
+	// Best-effort: load .env from repoRoot or backend/.env if present.
+	// Buffer any parse-error warnings here so we can attach them to cfg.Warnings below.
+	var envWarnings []string
 	for _, p := range []string{filepath.Join(repoRoot, ".env"), filepath.Join(repoRoot, "backend", ".env")} {
 		if _, err := os.Stat(p); err == nil {
-			_ = godotenv.Load(p)
+			if err := godotenv.Load(p); err != nil {
+				envWarnings = append(envWarnings, fmt.Sprintf("failed to parse %s: %v", p, err))
+			}
 		}
 	}
 
@@ -52,6 +56,10 @@ func Load(repoRoot string) (*Config, error) {
 		ServePort:          firstNonEmpty(os.Getenv("WCP_SERVE_PORT"), "8765"),
 		ClaudeBin:          firstNonEmpty(os.Getenv("WCP_CLAUDE_BIN"), "claude"),
 	}
+
+	// Surface any .env parse errors before required-var validation so users see them
+	// even when the load fails for a missing required key.
+	cfg.Warnings = append(cfg.Warnings, envWarnings...)
 
 	if cfg.FootballDataAPIKey == "" {
 		return nil, errors.New("FOOTBALL_DATA_API_KEY is required (see .env.example)")
