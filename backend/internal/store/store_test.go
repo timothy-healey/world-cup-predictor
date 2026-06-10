@@ -1,6 +1,7 @@
 package store
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -112,4 +113,31 @@ func TestPredictionInsertAndListByMatch(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, list, 1)
 	require.Equal(t, "ARG", list[0].PredictedWinner)
+}
+
+func TestExportJSON(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := Open(filepath.Join(dir, "wcp.db"))
+	defer s.Close()
+	require.NoError(t, s.UpsertTeam(Team{Code: "ARG", Name: "Argentina"}))
+	require.NoError(t, s.UpsertTeam(Team{Code: "SAU", Name: "Saudi Arabia"}))
+	require.NoError(t, s.UpsertMatch(Match{
+		ID: "m1", HomeTeamCode: "ARG", AwayTeamCode: "SAU",
+		KickoffUTC: "2026-06-25T11:00:00Z", Stage: "group",
+	}))
+	_, _ = s.InsertPrediction(Prediction{
+		MatchID: "m1", CreatedAt: "2026-06-25T10:30:00Z",
+		Trigger: "scheduled", Confidence: "medium",
+		PredictedWinner: "ARG", PredictedScore: "2-0",
+		WinProbability: 0.71, Reasoning: "x", InputsJSON: "{}",
+		RenderedPrompt: "", ModelID: "test", PromptVersion: "v",
+	})
+
+	outPath := filepath.Join(dir, "predictions.json")
+	require.NoError(t, s.ExportJSON(outPath))
+
+	body, err := os.ReadFile(outPath)
+	require.NoError(t, err)
+	require.Contains(t, string(body), `"matches"`)
+	require.Contains(t, string(body), `"ARG"`)
 }

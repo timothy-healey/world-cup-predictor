@@ -4,9 +4,12 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
+
+func nowUTC() string { return time.Now().UTC().Format(time.RFC3339) }
 
 //go:embed schema.sql
 var schemaSQL string
