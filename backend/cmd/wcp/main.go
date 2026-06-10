@@ -29,7 +29,7 @@ type command struct {
 var commands = []command{
 	{name: "bootstrap", run: runBootstrap, help: "Fetch fixtures, write & load launchd plists"},
 	{name: "predict", run: runPredict, help: "Predict a specific match or the next upcoming one"},
-	{name: "results", run: stubRun, help: "Pull recent finished match results"},
+	{name: "results", run: runResults, help: "Pull recent finished match results"},
 	{name: "serve", run: stubRun, help: "Local HTTP server for the dashboard"},
 	{name: "doctor", run: stubRun, help: "Self-audit and config check"},
 }
@@ -182,6 +182,41 @@ func runPredict(ctx context.Context, cfg *config.Config, args []string) error {
 			}
 		}
 	}
+	return nil
+}
+
+func runResults(ctx context.Context, cfg *config.Config, args []string) error {
+	s, err := store.Open(cfg.DBPath)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+
+	c := fdorg.NewClient("https://api.football-data.org", cfg.FootballDataAPIKey)
+	finished, err := c.GetFinishedResults(ctx)
+	if err != nil {
+		return err
+	}
+	updated := 0
+	for _, m := range finished {
+		if m.HomeScore == nil || m.AwayScore == nil {
+			continue
+		}
+		t, err := time.Parse(time.RFC3339, m.UTCDate)
+		if err != nil {
+			continue
+		}
+		id := fmt.Sprintf("%s-%s-vs-%s", t.UTC().Format("2006-01-02"), m.HomeTLA, m.AwayTLA)
+		if err := s.SetMatchResult(id, *m.HomeScore, *m.AwayScore, time.Now().UTC().Format(time.RFC3339)); err != nil {
+			fmt.Fprintf(os.Stderr, "[warn] update %s: %v\n", id, err)
+			continue
+		}
+		updated++
+	}
+	fmt.Printf("updated %d results\n", updated)
+
+	exportPath := filepath.Join(filepath.Dir(cfg.DBPath), "predictions.json")
+	_ = s.ExportJSON(exportPath)
 	return nil
 }
 

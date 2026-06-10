@@ -50,6 +50,28 @@ func TestClientGetFixturesParsesResponse(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestClientGetFinishedResults(t *testing.T) {
+	body := []byte(`{
+		"matches": [
+			{"id": 12345, "status": "FINISHED", "homeTeam": {"tla": "ARG"}, "awayTeam": {"tla": "SAU"},
+			 "utcDate": "2026-06-25T11:00:00Z", "stage": "GROUP_STAGE",
+			 "score": {"fullTime": {"home": 2, "away": 0}}}
+		]
+	}`)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Contains(t, r.URL.RawQuery, "status=FINISHED")
+		w.Write(body)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "k")
+	results, err := c.GetFinishedResults(t.Context())
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.NotNil(t, results[0].HomeScore)
+	require.Equal(t, 2, *results[0].HomeScore)
+}
+
 func TestClientReturnsErrorOnNon2xx(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)

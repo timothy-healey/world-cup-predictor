@@ -46,6 +46,10 @@ func (c *Client) GetFixtures(ctx context.Context) ([]Match, error) {
 	if err != nil {
 		return nil, err
 	}
+	return parseMatches(body)
+}
+
+func parseMatches(body []byte) ([]Match, error) {
 	var env struct {
 		Matches []rawMatch `json:"matches"`
 	}
