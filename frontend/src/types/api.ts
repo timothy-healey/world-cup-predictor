@@ -10,6 +10,15 @@ export type Stage =
 export type Confidence = "high" | "medium" | "low";
 export type Trigger = "scheduled" | "on_demand";
 
+export interface TraceEntry {
+  kind: "odds" | "news" | "lineup" | "context" | "predict";
+  started_at: string; // ISO 8601 with milliseconds, UTC
+  duration_ms: number;
+  ok: boolean;
+  error: string; // empty when ok
+  snippet: string; // empty when ok=false and no payload was returned
+}
+
 export interface Team {
   code: string;
   name: string;
@@ -37,6 +46,10 @@ export interface Prediction {
   // surfaces never see ablation predictions unless a future
   // experiment-comparison view is built with its own data path.
   variant: string;
+  // Legacy predictions written before the trace column existed return null;
+  // newer ones return a 5-element array in fixed order: odds, news, lineup,
+  // context, predict.
+  trace: TraceEntry[] | null;
 }
 
 export interface Match {

@@ -13,6 +13,7 @@ const p = (over: Partial<Prediction>): Prediction => ({
   reasoning: "",
   model_id: "claude",
   variant: "full",
+  trace: null,
   ...over,
 });
 
