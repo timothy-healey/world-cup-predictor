@@ -153,12 +153,14 @@ Small-cardinality string columns whose values are defined in code (`confidence`,
 
 ```sql
 CREATE TABLE teams (
-  code              TEXT PRIMARY KEY,        -- FIFA 3-letter code: "ARG", "USA", "MEX"
-  name              TEXT NOT NULL,           -- "Argentina"
-  group_id          TEXT,                    -- "A".."L" during group stage, NULL after
-  flag_url          TEXT,                    -- for dashboard
-  fifa_ranking      INTEGER,                 -- snapshot at tournament start
-  fixture_src_id    TEXT                     -- football-data.org's team ID
+  code                  TEXT PRIMARY KEY,    -- FIFA 3-letter code: "ARG", "USA", "MEX"
+  name                  TEXT NOT NULL,       -- "Argentina"
+  group_id              TEXT,                -- "A".."L" during group stage, NULL after
+  flag_url              TEXT,                -- for dashboard
+  fifa_ranking          INTEGER,             -- snapshot at tournament start
+  manager_name          TEXT,                -- head coach at tournament start; insurance against last-minute changes Claude wouldn't know
+  pre_tournament_form   TEXT,                -- JSON: last 5 matches before tournament. [{date, opponent_code, venue, score_for, score_against, competition}]
+  fixture_src_id        TEXT                 -- football-data.org's team ID
 );
 
 CREATE TABLE matches (
@@ -196,7 +198,8 @@ Notes:
 
 - **`predicted_winner` accepts a team code OR the literal string `"draw"`.** `"draw"` is an out-of-band sentinel — no FIFA team code is `draw`. Application code validates this on insert.
 - **`teams.group_id` is nullable** so the same row can describe a team in both the group stage (group set) and knockout stage (group cleared to NULL after group concludes). Tournament context queries that need "what group was Argentina in?" can recover it from the match-stage history if ever needed.
-- **Bootstrap populates `teams`** before `matches`. football-data.org returns teams as part of the competition feed; the bootstrap fetches teams once, then fixtures.
+- **Bootstrap populates `teams`** before `matches`. football-data.org returns teams as part of the competition feed; the bootstrap fetches teams once, then fixtures. For each team, bootstrap also fetches the last 5 completed matches (any competition, prior to tournament start) to populate `pre_tournament_form`.
+- **`pre_tournament_form` is naturally superseded** by in-tournament form once matches accumulate. The context fetcher includes both, but the prompt template should weight pre-tournament form more heavily in matchdays 1–2 and less thereafter.
 - **`predictions.predicted_winner`** is not a hard FK because of the `"draw"` sentinel, but the application validates that non-draw values exist in `teams`.
 
 Multiple predictions per match are allowed: if a `medium`-confidence prediction was made overnight and the user re-runs after waking, a second `high`-confidence row gets written. The dashboard shows the latest, but history is preserved.
