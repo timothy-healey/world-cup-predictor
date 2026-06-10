@@ -61,7 +61,13 @@ func Run(ctx context.Context, s *store.Store, c *fdorg.Client, agentsDir, workDi
 				binPath, _ := os.Executable()
 				path, err := plist.WriteAgent(agentsDir, binPath, id, workDir, t)
 				if err == nil {
-					_ = plist.LoadAgent(path) // best-effort; no-op on non-macOS
+					// `launchctl load -w` fails if the label is already loaded,
+					// which would leave launchd's in-memory schedule pointing at
+					// the OLD plist on disk after re-running bootstrap. Unload
+					// first; ignore the error since it's expected on first-ever
+					// bootstrap when nothing is loaded yet.
+					_ = plist.UnloadAgent(path) // ignore: fails when not previously loaded, which is normal
+					_ = plist.LoadAgent(path)
 				}
 			}
 		}
