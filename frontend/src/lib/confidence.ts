@@ -1,8 +1,11 @@
 import type { Confidence } from "../types/api";
 
-export type BadgeTone = "correct" | "secondary" | "wrong" | "pending";
+// The three tones confidenceBadge can actually return — a structural subset of
+// the Badge component's BadgeTone union. Kept local (not exported) so the only
+// named BadgeTone in the codebase lives with the Badge component.
+type ConfidenceTone = "correct" | "secondary" | "wrong";
 
-export function confidenceBadge(c: Confidence): { label: string; tone: BadgeTone } {
+export function confidenceBadge(c: Confidence): { label: string; tone: ConfidenceTone } {
   switch (c) {
     case "high":
       return { label: "High", tone: "correct" };

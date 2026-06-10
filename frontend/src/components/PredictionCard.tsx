@@ -6,6 +6,7 @@ import { Refresh, Zap } from "./icons";
 import { flagFor } from "../data/flags";
 import { formatKickoff, formatCountdown } from "../lib/format";
 import { confidenceBadge } from "../lib/confidence";
+import { parseReasoning } from "../lib/reasoning";
 
 interface Props {
   match: Match;
@@ -15,15 +16,8 @@ interface Props {
   predictDisabledReason?: string;
 }
 
-function parseReasoning(text: string): string[] {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.replace(/^[-*]\s*/, "").trim())
-    .filter((line) => line.length > 0);
-}
-
-function teamDisplay(code: string, name: string): string {
-  return `${flagFor(code)} ${name || code}`;
+function teamDisplay(code: string): string {
+  return `${flagFor(code)} ${code}`;
 }
 
 export function PredictionCard({
@@ -35,8 +29,8 @@ export function PredictionCard({
 }: Props) {
   const pred = latestPrediction(match);
   const ko = new Date(match.kickoff_utc);
-  const homeDisplay = teamDisplay(match.home_team_code, "");
-  const awayDisplay = teamDisplay(match.away_team_code, "");
+  const homeDisplay = teamDisplay(match.home_team_code);
+  const awayDisplay = teamDisplay(match.away_team_code);
 
   return (
     <article className="mb-3.5 rounded-lg border bg-surface px-6 py-5">

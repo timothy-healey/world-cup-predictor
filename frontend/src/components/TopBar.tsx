@@ -49,14 +49,15 @@ export function TopBar({ active, onChange, matches }: Props) {
           </div>
         </div>
       </div>
-      <nav className="flex gap-1">
+      <nav className="flex gap-1" aria-label="Dashboard sections">
         {TABS.map((t) => {
           const isActive = active === t.id;
           return (
             <button
               key={t.id}
               onClick={() => onChange(t.id)}
-              className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              aria-current={isActive ? "page" : undefined}
+              className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:shadow-focus ${
                 isActive
                   ? "border-ink text-ink"
                   : "border-transparent text-ink-3 hover:text-ink"

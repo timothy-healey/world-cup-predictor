@@ -4,6 +4,7 @@ import {
   formatCountdown,
   formatRelativeDay,
   formatScore,
+  formatTimestamp,
 } from "../src/lib/format";
 
 describe("formatKickoff", () => {
@@ -11,6 +12,14 @@ describe("formatKickoff", () => {
     // 2026-06-25 11:00 UTC → 21:00 AEST (UTC+10) on Thu Jun 25
     const out = formatKickoff("2026-06-25T11:00:00Z", "Australia/Sydney");
     expect(out).toBe("Thu, Jun 25 · 9:00 PM");
+  });
+});
+
+describe("formatTimestamp", () => {
+  it("renders short month/day + local time", () => {
+    // 2026-06-25 11:00 UTC → 21:00 in Sydney on Jun 25
+    const out = formatTimestamp("2026-06-25T11:00:00Z", "Australia/Sydney");
+    expect(out).toBe("Jun 25, 9:00 PM");
   });
 });
 

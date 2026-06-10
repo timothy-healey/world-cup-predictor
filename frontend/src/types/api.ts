@@ -33,8 +33,9 @@ export interface Prediction {
   model_id: string;
   // "full" = production prediction. Other values (e.g. "no-odds", "no-news")
   // are reserved for the planned post-hoc ablation experiment harness.
-  // The dashboard should filter to variant === "full" everywhere unless
-  // an experiment-comparison surface is built.
+  // `useData` strips non-"full" rows at the data boundary, so dashboard
+  // surfaces never see ablation predictions unless a future
+  // experiment-comparison view is built with its own data path.
   variant: string;
 }
 

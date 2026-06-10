@@ -3,17 +3,11 @@ import { buildBracket } from "../lib/bracket";
 import { flagFor } from "../data/flags";
 import { formatKickoff, formatScore } from "../lib/format";
 import { latestPrediction } from "../lib/trackRecord";
+import { actualWinnerCode, actualWinnerSide } from "../lib/outcome";
 import { Check, X } from "./icons";
 
 interface Props {
   matches: Match[];
-}
-
-function actualWinner(m: Match): "home" | "away" | "draw" | null {
-  if (m.home_score === null || m.away_score === null) return null;
-  if (m.home_score > m.away_score) return "home";
-  if (m.away_score > m.home_score) return "away";
-  return "draw";
 }
 
 function teamLabel(code: string): string {
@@ -21,7 +15,7 @@ function teamLabel(code: string): string {
   return `${flagFor(code)} ${code}`;
 }
 
-function teamClass(code: string, side: "home" | "away", outcome: ReturnType<typeof actualWinner>): string {
+function teamClass(code: string, side: "home" | "away", outcome: ReturnType<typeof actualWinnerSide>): string {
   const base = "font-display text-[14px] uppercase tracking-[0.02em]";
   if (!code) return `${base} font-medium italic text-ink-4 font-body text-xs tracking-normal normal-case`;
   if (outcome === null) return `${base} font-medium text-ink-2`;
@@ -33,16 +27,14 @@ function teamClass(code: string, side: "home" | "away", outcome: ReturnType<type
 function predictionVerdict(m: Match) {
   const pred = latestPrediction(m);
   if (!pred) return <span className="italic text-ink-3">No prediction yet</span>;
-  const actual = actualWinner(m);
-  if (actual === null) {
+  const actualCode = actualWinnerCode(m);
+  if (actualCode === null) {
     return (
       <span className="italic text-ink-3">
         Predicted {pred.predicted_winner} {pred.predicted_score} · pending
       </span>
     );
   }
-  const actualCode =
-    actual === "home" ? m.home_team_code : actual === "away" ? m.away_team_code : "draw";
   const winnerCorrect = pred.predicted_winner === actualCode;
   const exact = pred.predicted_score === `${m.home_score}-${m.away_score}`;
   return (
@@ -59,7 +51,7 @@ function predictionVerdict(m: Match) {
 }
 
 function MatchCell({ m, accent }: { m: Match; accent?: boolean }) {
-  const outcome = actualWinner(m);
+  const outcome = actualWinnerSide(m);
   const homeScore = m.home_score;
   const awayScore = m.away_score;
   const finished = formatScore(homeScore, awayScore);

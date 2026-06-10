@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { ExportPayload, Match } from "../types/api";
 import { PastMatchCard } from "../components/PastMatchCard";
+import { actualWinnerCode } from "../lib/outcome";
 
 interface Props {
   data: ExportPayload;
@@ -8,15 +9,8 @@ interface Props {
 
 type Verdict = "all" | "correct" | "wrong";
 
-function actualWinner(m: Match): string | null {
-  if (m.home_score === null || m.away_score === null) return null;
-  if (m.home_score > m.away_score) return m.home_team_code;
-  if (m.away_score > m.home_score) return m.away_team_code;
-  return "draw";
-}
-
 function anyCorrect(m: Match): boolean | null {
-  const actual = actualWinner(m);
+  const actual = actualWinnerCode(m);
   if (actual === null || m.predictions.length === 0) return null;
   return m.predictions.some((p) => p.predicted_winner === actual);
 }
@@ -55,7 +49,8 @@ export function Past({ data }: Props) {
           <select
             value={team}
             onChange={(e) => setTeam(e.target.value)}
-            className="rounded border bg-surface px-3 py-1.5 text-sm text-ink"
+            aria-label="Filter by team"
+            className="rounded border bg-surface px-3 py-1.5 text-sm text-ink focus:outline-none focus-visible:shadow-focus"
           >
             <option value="all">All teams</option>
             {[...data.teams]
@@ -69,7 +64,8 @@ export function Past({ data }: Props) {
           <select
             value={verdict}
             onChange={(e) => setVerdict(e.target.value as Verdict)}
-            className="rounded border bg-surface px-3 py-1.5 text-sm text-ink"
+            aria-label="Filter by verdict"
+            className="rounded border bg-surface px-3 py-1.5 text-sm text-ink focus:outline-none focus-visible:shadow-focus"
           >
             <option value="all">All predictions</option>
             <option value="correct">Correct only</option>

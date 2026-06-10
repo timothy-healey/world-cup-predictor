@@ -10,6 +10,21 @@ interface DataState {
   loading: boolean;
 }
 
+// Strip non-"full" predictions before exposing the payload. The backend
+// `predictions.variant` column reserves "no-odds"/"no-news"/etc. for a future
+// ablation experiment harness. Dashboard accuracy stats, badges, and lists must
+// not mix those rows with production predictions. Filtering once here is the
+// single chokepoint — every downstream consumer is automatically safe.
+function filterProductionVariants(payload: ExportPayload): ExportPayload {
+  return {
+    ...payload,
+    matches: payload.matches.map((m) => ({
+      ...m,
+      predictions: m.predictions.filter((p) => p.variant === "full"),
+    })),
+  };
+}
+
 export function useData() {
   const [state, setState] = useState<DataState>({ data: null, error: null, loading: true });
   const cancelled = useRef(false);
@@ -20,7 +35,7 @@ export function useData() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: ExportPayload = await res.json();
       if (!cancelled.current) {
-        setState({ data: json, error: null, loading: false });
+        setState({ data: filterProductionVariants(json), error: null, loading: false });
       }
     } catch (e) {
       if (!cancelled.current) {

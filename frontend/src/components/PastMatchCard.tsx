@@ -2,22 +2,21 @@ import type { Match, Prediction } from "../types/api";
 import { Badge } from "./Badge";
 import { Check, X } from "./icons";
 import { flagFor } from "../data/flags";
-import { formatKickoff, formatScore } from "../lib/format";
+import { formatKickoff, formatScore, formatTimestamp } from "../lib/format";
 import { confidenceBadge } from "../lib/confidence";
+import { actualWinnerCode } from "../lib/outcome";
+import { parseReasoning } from "../lib/reasoning";
 
 interface Props {
   match: Match;
 }
 
-function actualOutcome(m: Match): { winner: string; score: string } | null {
-  if (m.home_score === null || m.away_score === null) return null;
-  let winner = "draw";
-  if (m.home_score > m.away_score) winner = m.home_team_code;
-  else if (m.away_score > m.home_score) winner = m.away_team_code;
-  return { winner, score: `${m.home_score}-${m.away_score}` };
+interface ActualOutcome {
+  winner: string;
+  score: string;
 }
 
-function verdict(p: Prediction, actual: { winner: string; score: string }) {
+function verdict(p: Prediction, actual: ActualOutcome) {
   const winnerOk = p.predicted_winner === actual.winner;
   const scoreOk = p.predicted_score === actual.score;
   if (winnerOk && scoreOk) return { tone: "correct" as const, label: "Exact" };
@@ -25,14 +24,13 @@ function verdict(p: Prediction, actual: { winner: string; score: string }) {
   return { tone: "wrong" as const, label: "Wrong" };
 }
 
-function anyCorrect(preds: Prediction[], actual: { winner: string; score: string }): boolean {
-  return preds.some((p) => p.predicted_winner === actual.winner);
-}
-
 export function PastMatchCard({ match }: Props) {
-  const actual = actualOutcome(match);
-  if (!actual) return null;
-  const tintCorrect = anyCorrect(match.predictions, actual);
+  const winner = actualWinnerCode(match);
+  if (winner === null) return null;
+  const score = formatScore(match.home_score, match.away_score);
+  if (score === null) return null;
+  const actual: ActualOutcome = { winner, score };
+  const tintCorrect = match.predictions.some((p) => p.predicted_winner === winner);
   const surface = match.predictions.length === 0
     ? "bg-surface"
     : tintCorrect
@@ -77,7 +75,7 @@ export function PastMatchCard({ match }: Props) {
                   >
                     <div className="flex items-center gap-3 text-sm">
                       <span className="font-mono text-xs text-ink-3">
-                        {new Date(p.created_at).toISOString().slice(0, 16).replace("T", " ")}
+                        {formatTimestamp(p.created_at)}
                       </span>
                       <span className="font-display text-base font-extrabold uppercase text-ink">
                         {p.predicted_winner} {p.predicted_score}
@@ -109,15 +107,11 @@ export function PastMatchCard({ match }: Props) {
                 Reasoning (latest)
               </div>
               <ul className="max-w-[62ch] list-disc pl-5 text-sm leading-relaxed">
-                {latest.reasoning
-                  .split(/\r?\n/)
-                  .map((l) => l.replace(/^[-*]\s*/, "").trim())
-                  .filter(Boolean)
-                  .map((line, idx) => (
-                    <li key={idx} className="mb-1">
-                      {line}
-                    </li>
-                  ))}
+                {parseReasoning(latest.reasoning).map((line, idx) => (
+                  <li key={idx} className="mb-1">
+                    {line}
+                  </li>
+                ))}
               </ul>
             </div>
           )}

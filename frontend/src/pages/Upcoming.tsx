@@ -49,7 +49,8 @@ export function Upcoming({ data, onPredict, predictDisabled, predictDisabledReas
           <select
             value={team}
             onChange={(e) => setTeam(e.target.value)}
-            className="rounded border bg-surface px-3 py-1.5 text-sm text-ink"
+            aria-label="Filter by team"
+            className="rounded border bg-surface px-3 py-1.5 text-sm text-ink focus:outline-none focus-visible:shadow-focus"
           >
             <option value="all">All teams</option>
             {[...data.teams]
@@ -63,7 +64,8 @@ export function Upcoming({ data, onPredict, predictDisabled, predictDisabledReas
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortDir)}
-            className="rounded border bg-surface px-3 py-1.5 text-sm text-ink"
+            aria-label="Sort order"
+            className="rounded border bg-surface px-3 py-1.5 text-sm text-ink focus:outline-none focus-visible:shadow-focus"
           >
             <option value="soonest">Soonest first</option>
             <option value="latest">Latest first</option>
@@ -73,6 +75,7 @@ export function Upcoming({ data, onPredict, predictDisabled, predictDisabledReas
               type="checkbox"
               checked={showAll}
               onChange={(e) => setShowAll(e.target.checked)}
+              className="focus:outline-none focus-visible:shadow-focus"
             />
             Show all
           </label>

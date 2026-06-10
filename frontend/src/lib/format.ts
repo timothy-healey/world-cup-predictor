@@ -46,3 +46,17 @@ export function formatScore(home: number | null, away: number | null): string | 
   if (home === null || away === null) return null;
   return `${home}-${away}`;
 }
+
+// Compact local-zone timestamp for audit/list rows, e.g. "Jun 25, 10:30 AM".
+// Used in past-match prediction rows so the displayed time matches the user's
+// wall clock alongside other localised timestamps in the same card.
+export function formatTimestamp(iso: string, timeZone?: string): string {
+  const tz = timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: tz,
+  }).format(new Date(iso));
+}
