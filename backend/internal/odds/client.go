@@ -7,17 +7,63 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
+	"sync"
 	"time"
+
+	"github.com/timhealey/world-cup-predictor/backend/internal/ratelimit"
 )
+
+// OddsRateLimit is the most recent rate-limit observation from the-odds-api.
+// -1 fields mean "no observation yet".
+type OddsRateLimit struct {
+	Remaining   int
+	Used        int
+	LastCost    int
+	LastUpdated time.Time
+}
+
+// LowBudgetThreshold is the cutoff below which a warning is emitted when
+// requests-remaining drops; the-odds-api free tier is 500/month so 50 is a
+// roughly 10% reserve.
+const LowBudgetThreshold = 50
 
 type Client struct {
 	baseURL string
 	apiKey  string
 	httpc   *http.Client
+
+	rlMu sync.Mutex
+	rl   OddsRateLimit
 }
 
 func NewClient(baseURL, apiKey string) *Client {
-	return &Client{baseURL: baseURL, apiKey: apiKey, httpc: &http.Client{Timeout: 15 * time.Second}}
+	return &Client{
+		baseURL: baseURL,
+		apiKey:  apiKey,
+		httpc:   &http.Client{Timeout: 15 * time.Second},
+		rl:      OddsRateLimit{Remaining: -1, Used: -1, LastCost: -1},
+	}
+}
+
+// LastRateLimit returns the most recent observation. Treat any -1 field /
+// zero LastUpdated as "no observation yet".
+func (c *Client) LastRateLimit() OddsRateLimit {
+	c.rlMu.Lock()
+	defer c.rlMu.Unlock()
+	return c.rl
+}
+
+func (c *Client) setRateLimit(remaining, used, lastCost int) {
+	c.rlMu.Lock()
+	c.rl = OddsRateLimit{
+		Remaining:   remaining,
+		Used:        used,
+		LastCost:    lastCost,
+		LastUpdated: time.Now(),
+	}
+	c.rlMu.Unlock()
+	ratelimit.RecordOdds(remaining, used, lastCost)
 }
 
 type Odds struct {
@@ -64,6 +110,13 @@ func (c *Client) GetForMatch(ctx context.Context, homeName, awayName, kickoffUTC
 		return Odds{}, err
 	}
 	defer resp.Body.Close()
+
+	// Capture rate-limit headers regardless of status (the-odds-api sets
+	// them on errors too, and we want visibility into "ran out of budget"
+	// scenarios). resp.Header.Get is case-insensitive so the documented
+	// lowercase keys work as-is.
+	c.captureRateLimit(resp.Header)
+
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
 		return Odds{}, fmt.Errorf("odds api %d: %s", resp.StatusCode, string(body))
@@ -79,6 +132,37 @@ func (c *Client) GetForMatch(ctx context.Context, homeName, awayName, kickoffUTC
 		}
 	}
 	return Odds{}, fmt.Errorf("no odds found for %s vs %s @ %s", homeName, awayName, kickoffUTC)
+}
+
+// captureRateLimit reads the three documented headers, stores them, and
+// emits a stderr warning if the remaining budget has crossed below the
+// LowBudgetThreshold.
+func (c *Client) captureRateLimit(h http.Header) {
+	remaining := parseIntHeader(h, "x-requests-remaining")
+	used := parseIntHeader(h, "x-requests-used")
+	lastCost := parseIntHeader(h, "x-requests-last")
+	// Only record if at least one header was present (avoid blowing away a
+	// real observation with -1 noise on a malformed response).
+	if remaining == -1 && used == -1 && lastCost == -1 {
+		return
+	}
+	c.setRateLimit(remaining, used, lastCost)
+	if remaining != -1 && remaining < LowBudgetThreshold {
+		warn("the-odds-api: only %d requests left this period (used %d, last call cost %d)",
+			remaining, used, lastCost)
+	}
+}
+
+func parseIntHeader(h http.Header, key string) int {
+	v := h.Get(key)
+	if v == "" {
+		return -1
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return -1
+	}
+	return n
 }
 
 func pickFirstH2H(e rawEvent) (Odds, error) {
