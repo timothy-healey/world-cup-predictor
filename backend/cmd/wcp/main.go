@@ -100,13 +100,10 @@ func printUsage() {
 
 func runPredict(ctx context.Context, cfg *config.Config, args []string) error {
 	fs := flag.NewFlagSet("predict", flag.ExitOnError)
-	var matchID, next string
+	var matchID string
 	var email bool
-	var dryRun bool
-	fs.StringVar(&matchID, "match", "", "match ID to predict (e.g. 2026-06-25-ARG-vs-SAU)")
-	fs.StringVar(&next, "next", "", "next: predict the next upcoming unpredicted match (no value, just present)")
+	fs.StringVar(&matchID, "match", "", "match ID to predict (e.g. 2026-06-25-ARG-vs-SAU); omit to pick the next upcoming unpredicted match")
 	fs.BoolVar(&email, "email", false, "send email after prediction")
-	fs.BoolVar(&dryRun, "dry-run", false, "print prompt; do not call Claude; do not write to DB")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
