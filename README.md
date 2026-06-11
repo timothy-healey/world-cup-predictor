@@ -4,6 +4,22 @@ A local-first tool that predicts every match of the 2026 FIFA World Cup using Cl
 
 The dashboard (separate plan) reads the same data to surface track record, upcoming matches, group standings, and a knockout bracket once the group stage concludes.
 
+## What it looks like
+
+**Dashboard** — running track record, the next three matches, and full group standings (swaps to a knockout bracket once group stage finishes).
+
+![Dashboard](docs/screenshots/01-dashboard.png)
+
+**Upcoming** — every remaining fixture, soonest first; each card has a one-click on-demand predict.
+
+![Upcoming matches](docs/screenshots/02-upcoming-cropped.png)
+
+**Past results** — every completed match with the prediction, the actual score, Claude's reasoning bullets, and a per-fetcher trace pill. Green tint = winner correct, pink = wrong.
+
+![Past results](docs/screenshots/03-past-cropped.png)
+
+> Screenshots are from a seeded "one week into the tournament" demo dataset — on a fresh install the track record and past-results views populate as matches finish.
+
 ## Why local-first
 
 - The repo is shareable. A friend can clone it, drop their own keys in `.env`, and run their own predictor without sharing any state.
