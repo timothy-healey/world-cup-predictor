@@ -6,9 +6,8 @@ The dashboard (separate plan) reads the same data to surface track record, upcom
 
 ## Why local-first
 
-- Tomorrow morning prediction emails reach Tim in Australia at ~5am local. The laptop is asleep, so launchd queues missed jobs and runs them on wake.
 - The repo is shareable. A friend can clone it, drop their own keys in `.env`, and run their own predictor without sharing any state.
-- Zero hosting cost. The Claude Max subscription drives the LLM via the `claude` CLI as a subprocess — no API key needed for the model.
+- Zero hosting cost. Your Claude subscription drives the LLM via the `claude` CLI as a subprocess — no API key needed for the model.
 
 ## Setup
 
