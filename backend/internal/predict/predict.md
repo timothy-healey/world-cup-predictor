@@ -21,3 +21,9 @@ Reply with ONLY this JSON, no prose:
     "Mention the most decisive factor first."
   ]
 }
+
+`winner` must agree with `predicted_score`. If the score is a draw (e.g. 1-1,
+2-2), `winner` must be "draw". Otherwise `winner` must be the team code with
+more goals. If you lean toward one side but expect a draw scoreline, set
+`winner` to "draw" and express the lean via `win_probability` (e.g. 0.45 for a
+slight home edge in an expected draw).
