@@ -117,3 +117,50 @@ func TestClientEmitsWirelogOnHTTPError(t *testing.T) {
 	out := buf.String()
 	require.Contains(t, out, "[wcp:odds] ✗ 429 (")
 }
+
+// TestGetForMatch_AliasedTeams verifies that DB-style names for the five
+// teams whose names differ between football-data.org and the-odds-api are
+// translated through oddsAPIName before the event lookup. Uses the captured
+// live response so the strings on the wire are real, not synthesized.
+func TestGetForMatch_AliasedTeams(t *testing.T) {
+	body, err := os.ReadFile("../../testdata/odds-wc2026.json")
+	require.NoError(t, err)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	cases := []struct {
+		home, away string
+	}{
+		{"United States", "Paraguay"},
+		{"Canada", "Bosnia-Herzegovina"},
+		{"Spain", "Cape Verde Islands"},
+		{"Portugal", "Congo DR"},
+		{"Czechia", "South Africa"},
+	}
+	for _, c := range cases {
+		t.Run(c.home+" vs "+c.away, func(t *testing.T) {
+			client := NewClient(srv.URL, "k")
+			o, err := client.GetForMatch(t.Context(), c.home, c.away, "2026-06-15T00:00:00Z")
+			require.NoError(t, err)
+			require.Greater(t, o.HomeOdds, 0.0, "home odds should be populated")
+		})
+	}
+}
+
+// TestGetForMatch_NonAliasedTeams verifies that teams whose names already
+// match across both providers still resolve via the identity path.
+func TestGetForMatch_NonAliasedTeams(t *testing.T) {
+	body, err := os.ReadFile("../../testdata/odds-wc2026.json")
+	require.NoError(t, err)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "k")
+	o, err := client.GetForMatch(t.Context(), "Qatar", "Switzerland", "2026-06-13T19:00:00Z")
+	require.NoError(t, err)
+	require.Greater(t, o.HomeOdds, 0.0)
+}

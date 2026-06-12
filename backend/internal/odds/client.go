@@ -134,8 +134,10 @@ func (c *Client) GetForMatch(ctx context.Context, homeName, awayName, kickoffUTC
 	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&events); err != nil {
 		return Odds{}, err
 	}
+	wantHome := oddsAPIName(homeName)
+	wantAway := oddsAPIName(awayName)
 	for _, e := range events {
-		if e.HomeTeam == homeName && e.AwayTeam == awayName {
+		if e.HomeTeam == wantHome && e.AwayTeam == wantAway {
 			return pickFirstH2H(e)
 		}
 	}
