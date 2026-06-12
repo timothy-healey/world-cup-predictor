@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/timhealey/world-cup-predictor/backend/internal/claudec"
 	"github.com/timhealey/world-cup-predictor/backend/internal/fetchers"
@@ -48,6 +49,9 @@ EOF
 			return fetchers.ContextResult{}, nil, "no completed matches yet"
 		},
 	})
+	pipeline.SetNowFn(func() time.Time {
+		return time.Date(2026, 6, 25, 10, 0, 0, 0, time.UTC) // 1h before kickoff
+	})
 
 	rec, err := pipeline.Run(context.Background(), "m1", "on_demand")
 	require.NoError(t, err)
@@ -65,6 +69,162 @@ EOF
 		require.Equal(t, true, entries[i]["ok"], "kind=%s should be ok", k)
 		require.Equal(t, "", entries[i]["error"])
 	}
+}
+
+func TestRun_RejectsAtStartWhenPastKickoff(t *testing.T) {
+	s, _ := store.Open(filepath.Join(t.TempDir(), "wcp.db"))
+	defer s.Close()
+	require.NoError(t, s.UpsertTeam(store.Team{Code: "ARG", Name: "Argentina"}))
+	require.NoError(t, s.UpsertTeam(store.Team{Code: "SAU", Name: "Saudi Arabia"}))
+	require.NoError(t, s.UpsertMatch(store.Match{
+		ID: "m1", HomeTeamCode: "ARG", AwayTeamCode: "SAU",
+		KickoffUTC: "2026-06-25T11:00:00Z", Stage: "group",
+	}))
+
+	tmp := t.TempDir()
+	// Claude script that records each invocation so we can assert it was NOT called.
+	callLog := filepath.Join(tmp, "calls.log")
+	fake := filepath.Join(tmp, "claude")
+	require.NoError(t, os.WriteFile(fake, []byte("#!/bin/sh\necho called >> "+callLog+"\n"), 0o755))
+
+	d := claudec.NewDriver(fake, "test-model")
+	pipeline := New(s, d, Deps{
+		FetchOdds: func(ctx context.Context, h, a, k string) (any, error, string) {
+			return nil, nil, ""
+		},
+		FetchNews: func(ctx context.Context, d any, h, a string) (fetchers.NewsResult, error, string) {
+			return fetchers.NewsResult{}, nil, ""
+		},
+		FetchLineup: func(ctx context.Context, d any, h, a string) (fetchers.LineupResult, error, string) {
+			return fetchers.LineupResult{}, nil, ""
+		},
+		FetchContext: func(s *store.Store, h, a string) (fetchers.ContextResult, error, string) {
+			return fetchers.ContextResult{}, nil, ""
+		},
+	})
+	// Pin "now" to 1 hour after kickoff.
+	pipeline.SetNowFn(func() time.Time {
+		return time.Date(2026, 6, 25, 12, 0, 0, 0, time.UTC)
+	})
+
+	_, err := pipeline.Run(context.Background(), "m1", "on_demand")
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrPredictionPastKickoff)
+
+	// Claude must not have been invoked.
+	_, statErr := os.Stat(callLog)
+	require.True(t, os.IsNotExist(statErr), "claude was called but should not have been")
+
+	// No prediction row should exist for the match.
+	preds, err := s.ListPredictionsByMatch("m1")
+	require.NoError(t, err)
+	require.Len(t, preds, 0)
+}
+
+func TestRun_RejectsAtStartWhenExactlyKickoff(t *testing.T) {
+	s, _ := store.Open(filepath.Join(t.TempDir(), "wcp.db"))
+	defer s.Close()
+	require.NoError(t, s.UpsertTeam(store.Team{Code: "ARG", Name: "Argentina"}))
+	require.NoError(t, s.UpsertTeam(store.Team{Code: "SAU", Name: "Saudi Arabia"}))
+	require.NoError(t, s.UpsertMatch(store.Match{
+		ID: "m1", HomeTeamCode: "ARG", AwayTeamCode: "SAU",
+		KickoffUTC: "2026-06-25T11:00:00Z", Stage: "group",
+	}))
+
+	tmp := t.TempDir()
+	fake := filepath.Join(tmp, "claude")
+	require.NoError(t, os.WriteFile(fake, []byte("#!/bin/sh\nexit 0\n"), 0o755))
+
+	d := claudec.NewDriver(fake, "test-model")
+	pipeline := New(s, d, Deps{
+		FetchOdds: func(ctx context.Context, h, a, k string) (any, error, string) {
+			return nil, nil, ""
+		},
+		FetchNews: func(ctx context.Context, d any, h, a string) (fetchers.NewsResult, error, string) {
+			return fetchers.NewsResult{}, nil, ""
+		},
+		FetchLineup: func(ctx context.Context, d any, h, a string) (fetchers.LineupResult, error, string) {
+			return fetchers.LineupResult{}, nil, ""
+		},
+		FetchContext: func(s *store.Store, h, a string) (fetchers.ContextResult, error, string) {
+			return fetchers.ContextResult{}, nil, ""
+		},
+	})
+	// Pin "now" to exactly kickoff.
+	pipeline.SetNowFn(func() time.Time {
+		return time.Date(2026, 6, 25, 11, 0, 0, 0, time.UTC)
+	})
+
+	_, err := pipeline.Run(context.Background(), "m1", "on_demand")
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrPredictionPastKickoff)
+}
+
+func TestRun_RejectsAtPersistWhenPipelineOverruns(t *testing.T) {
+	s, _ := store.Open(filepath.Join(t.TempDir(), "wcp.db"))
+	defer s.Close()
+	require.NoError(t, s.UpsertTeam(store.Team{Code: "ARG", Name: "Argentina"}))
+	require.NoError(t, s.UpsertTeam(store.Team{Code: "SAU", Name: "Saudi Arabia"}))
+	require.NoError(t, s.UpsertMatch(store.Match{
+		ID: "m1", HomeTeamCode: "ARG", AwayTeamCode: "SAU",
+		KickoffUTC: "2026-06-25T11:00:00Z", Stage: "group",
+	}))
+
+	tmp := t.TempDir()
+	callLog := filepath.Join(tmp, "calls.log")
+	fake := filepath.Join(tmp, "claude")
+	// Real Claude reply so the pipeline gets past the predict step and
+	// reaches the persist-time check.
+	require.NoError(t, os.WriteFile(fake, []byte(`#!/bin/sh
+echo called >> `+callLog+`
+cat <<'EOF'
+{"winner":"ARG","predicted_score":"2-0","win_probability":0.71,"reasoning":["a"]}
+EOF
+`), 0o755))
+
+	d := claudec.NewDriver(fake, "test-model")
+	pipeline := New(s, d, Deps{
+		FetchOdds: func(ctx context.Context, h, a, k string) (any, error, string) {
+			return map[string]float64{"home": 1.4}, nil, "ok"
+		},
+		FetchNews: func(ctx context.Context, d any, h, a string) (fetchers.NewsResult, error, string) {
+			return fetchers.NewsResult{HomeSummary: "h", AwaySummary: "a"}, nil, "h/a"
+		},
+		FetchLineup: func(ctx context.Context, d any, h, a string) (fetchers.LineupResult, error, string) {
+			return fetchers.LineupResult{Confirmed: true}, nil, "ok"
+		},
+		FetchContext: func(s *store.Store, h, a string) (fetchers.ContextResult, error, string) {
+			return fetchers.ContextResult{}, nil, "ok"
+		},
+	})
+
+	// Clock that flips past kickoff after the first call. The start check
+	// (first nowFn call) sees pre-kickoff; the persist check (last nowFn
+	// call) sees post-kickoff.
+	calls := 0
+	beforeKickoff := time.Date(2026, 6, 25, 10, 0, 0, 0, time.UTC)
+	afterKickoff := time.Date(2026, 6, 25, 12, 0, 0, 0, time.UTC)
+	pipeline.SetNowFn(func() time.Time {
+		calls++
+		if calls <= 1 { // first call = start-check; second call = persist-check (must see afterKickoff)
+			return beforeKickoff
+		}
+		return afterKickoff
+	})
+
+	_, err := pipeline.Run(context.Background(), "m1", "on_demand")
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrPredictionPastKickoff)
+
+	// Claude WAS called on this path — the pipeline ran end-to-end.
+	data, statErr := os.ReadFile(callLog)
+	require.NoError(t, statErr)
+	require.Contains(t, string(data), "called")
+
+	// But no prediction row was written.
+	preds, err := s.ListPredictionsByMatch("m1")
+	require.NoError(t, err)
+	require.Len(t, preds, 0)
 }
 
 func TestRunPartialFailureLowersConfidenceAndRecordsErrors(t *testing.T) {
@@ -99,6 +259,9 @@ EOF
 		FetchContext: func(s *store.Store, h, a string) (fetchers.ContextResult, error, string) {
 			return fetchers.ContextResult{}, nil, "context ok"
 		},
+	})
+	pipeline.SetNowFn(func() time.Time {
+		return time.Date(2026, 6, 25, 10, 0, 0, 0, time.UTC) // 1h before kickoff
 	})
 
 	rec, err := pipeline.Run(context.Background(), "m1", "scheduled")

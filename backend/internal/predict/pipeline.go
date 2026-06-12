@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -19,6 +20,11 @@ import (
 //
 //go:embed predict.md
 var systemPromptBytes []byte
+
+// ErrPredictionPastKickoff is returned by Pipeline.Run when the match's
+// kickoff has already elapsed. Predictions are only meaningful before
+// kickoff; this guard prevents post-hoc rows from polluting track record.
+var ErrPredictionPastKickoff = errors.New("predict: kickoff already elapsed")
 
 // Deps holds injectable fetcher functions for testing. Each fetcher returns:
 //   - data: the fetcher result (typed per kind)
@@ -38,11 +44,12 @@ type Pipeline struct {
 	deps          Deps
 	systemPrompt  string
 	promptVersion string
+	nowFn         func() time.Time
 }
 
 func New(s *store.Store, d *claudec.Driver, deps Deps) *Pipeline {
 	sysPrompt, version := loadSystemPrompt()
-	return &Pipeline{store: s, claude: d, deps: deps, systemPrompt: sysPrompt, promptVersion: version}
+	return &Pipeline{store: s, claude: d, deps: deps, systemPrompt: sysPrompt, promptVersion: version, nowFn: time.Now}
 }
 
 func loadSystemPrompt() (string, string) {
@@ -53,6 +60,16 @@ func (p *Pipeline) Run(ctx context.Context, matchID, trigger string) (store.Pred
 	m, err := p.store.GetMatch(matchID)
 	if err != nil {
 		return store.Prediction{}, fmt.Errorf("get match: %w", err)
+	}
+	kickoff, err := time.Parse(time.RFC3339, m.KickoffUTC)
+	if err != nil {
+		return store.Prediction{}, fmt.Errorf("parse kickoff %q: %w", m.KickoffUTC, err)
+	}
+	if !p.nowFn().Before(kickoff) {
+		return store.Prediction{}, fmt.Errorf("%w: match=%s kickoff=%s now=%s",
+			ErrPredictionPastKickoff, matchID,
+			kickoff.UTC().Format(time.RFC3339),
+			p.nowFn().UTC().Format(time.RFC3339))
 	}
 	home, _ := p.store.GetTeam(m.HomeTeamCode)
 	away, _ := p.store.GetTeam(m.AwayTeamCode)
@@ -190,6 +207,12 @@ func (p *Pipeline) Run(ctx context.Context, matchID, trigger string) (store.Pred
 		PromptVersion:   p.promptVersion,
 		Variant:         "full",
 		TraceJSON:       string(traceBytes),
+	}
+	if !p.nowFn().Before(kickoff) {
+		return store.Prediction{}, fmt.Errorf("%w: match=%s kickoff=%s now=%s (pipeline overran)",
+			ErrPredictionPastKickoff, matchID,
+			kickoff.UTC().Format(time.RFC3339),
+			p.nowFn().UTC().Format(time.RFC3339))
 	}
 	id, err := p.store.InsertPrediction(pred)
 	if err != nil {
