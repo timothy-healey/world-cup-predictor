@@ -1,6 +1,7 @@
+import { useState } from "react";
 import type { Match, Prediction } from "../types/api";
 import { Badge } from "./Badge";
-import { Check, X } from "./icons";
+import { Check, ChevronDown, Lock, X } from "./icons";
 import { flagFor } from "../data/flags";
 import { formatKickoff, formatScore, formatTimestamp } from "../lib/format";
 import { confidenceBadge } from "../lib/confidence";
@@ -26,7 +27,62 @@ function verdict(p: Prediction, actual: ActualOutcome) {
   return { tone: "wrong" as const, label: "Wrong" };
 }
 
+function PredictionRow({
+  p,
+  actual,
+  teamName,
+  variant,
+}: {
+  p: Prediction;
+  actual: ActualOutcome;
+  teamName: (code: string) => string;
+  variant: "locked" | "prior";
+}) {
+  const v = verdict(p, actual);
+  const isLocked = variant === "locked";
+  return (
+    <li
+      className={
+        "flex items-center justify-between rounded-md bg-surface px-3 py-1.5 " +
+        (isLocked
+          ? "border-2 border-ink shadow-sm"
+          : "border border-black/10 opacity-75")
+      }
+    >
+      <div className="flex items-center gap-3 text-sm">
+        <span className="font-mono text-xs text-ink-3">
+          {formatTimestamp(p.created_at)}
+        </span>
+        <span className="font-display text-base font-extrabold uppercase text-ink">
+          {teamName(p.predicted_winner)} {p.predicted_score}
+        </span>
+        <Badge tone={confidenceBadge(p.confidence).tone}>
+          {confidenceBadge(p.confidence).label} confidence
+        </Badge>
+        {isLocked && (
+          <span className="inline-flex items-center gap-1 rounded-pill bg-ink px-2 py-0.5 text-[10px] font-bold uppercase tracking-label text-surface">
+            <Lock size={11} /> Locked
+          </span>
+        )}
+        <span className="text-xs text-ink-3">
+          {p.trigger === "scheduled" ? "scheduled" : "on demand"}
+        </span>
+      </div>
+      {v.tone === "correct" ? (
+        <span className="flex items-center gap-1.5 text-sm font-semibold text-correct">
+          <Check size={14} /> {v.label}
+        </span>
+      ) : (
+        <span className="flex items-center gap-1.5 text-sm font-semibold text-wrong">
+          <X size={14} /> {v.label}
+        </span>
+      )}
+    </li>
+  );
+}
+
 export function PastMatchCard({ match, teamName }: Props) {
+  const [showPriors, setShowPriors] = useState(false);
   const winner = actualWinnerCode(match);
   if (winner === null) return null;
   const score = formatScore(match.home_score, match.away_score);
@@ -41,7 +97,8 @@ export function PastMatchCard({ match, teamName }: Props) {
   const sorted = [...match.predictions].sort((a, b) =>
     a.created_at < b.created_at ? 1 : -1,
   );
-  const latest = sorted[0];
+  const locked = sorted[0];
+  const priors = sorted.slice(1);
 
   return (
     <article className={`mb-3.5 rounded-lg border ${surface} px-6 py-5`}>
@@ -62,54 +119,57 @@ export function PastMatchCard({ match, teamName }: Props) {
         </div>
         <div>
           <div className="mb-2 text-xs font-semibold uppercase tracking-label text-ink-3">
-            Predictions ({sorted.length})
+            Locked prediction
           </div>
-          {sorted.length === 0 ? (
+          {!locked ? (
             <div className="text-sm italic text-ink-3">No prediction was made.</div>
           ) : (
             <ul className="space-y-1.5">
-              {sorted.map((p) => {
-                const v = verdict(p, actual);
-                return (
-                  <li
-                    key={p.id}
-                    className="flex items-center justify-between rounded-md border bg-surface px-3 py-1.5"
-                  >
-                    <div className="flex items-center gap-3 text-sm">
-                      <span className="font-mono text-xs text-ink-3">
-                        {formatTimestamp(p.created_at)}
-                      </span>
-                      <span className="font-display text-base font-extrabold uppercase text-ink">
-                        {teamName(p.predicted_winner)} {p.predicted_score}
-                      </span>
-                      <Badge tone={confidenceBadge(p.confidence).tone}>
-                        {confidenceBadge(p.confidence).label}
-                      </Badge>
-                      <span className="text-xs text-ink-3">
-                        {p.trigger === "scheduled" ? "scheduled" : "on demand"}
-                      </span>
-                    </div>
-                    {v.tone === "correct" ? (
-                      <span className="flex items-center gap-1.5 text-sm font-semibold text-correct">
-                        <Check size={14} /> {v.label}
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 text-sm font-semibold text-wrong">
-                        <X size={14} /> {v.label}
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
+              <PredictionRow
+                p={locked}
+                actual={actual}
+                teamName={teamName}
+                variant="locked"
+              />
             </ul>
           )}
-          {latest && (
+          {priors.length > 0 && (
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={() => setShowPriors((s) => !s)}
+                aria-expanded={showPriors}
+                className="inline-flex items-center gap-1 text-2xs font-semibold uppercase tracking-label text-ink-3 hover:text-ink focus:outline-none focus-visible:shadow-focus"
+              >
+                <ChevronDown
+                  size={12}
+                  className={"transition-transform " + (showPriors ? "rotate-180" : "")}
+                />
+                {showPriors ? "Hide" : "Show"} {priors.length} earlier prediction
+                {priors.length === 1 ? "" : "s"}
+              </button>
+              {showPriors && (
+                <ul className="mt-2 space-y-1.5">
+                  {priors.map((p) => (
+                    <PredictionRow
+                      key={p.id}
+                      p={p}
+                      actual={actual}
+                      teamName={teamName}
+                      variant="prior"
+                    />
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {locked && (
             <div className="mt-4">
               <div className="mb-1.5 text-xs font-semibold uppercase tracking-label text-ink-3">
-                Reasoning (latest)
+                Reasoning (locked)
               </div>
               <ul className="max-w-[62ch] list-disc pl-5 text-sm leading-relaxed">
-                {parseReasoning(latest.reasoning).map((line, idx) => (
+                {parseReasoning(locked.reasoning).map((line, idx) => (
                   <li key={idx} className="mb-1">
                     {line}
                   </li>
