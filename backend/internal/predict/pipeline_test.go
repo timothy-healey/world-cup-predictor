@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/timhealey/world-cup-predictor/backend/internal/claudec"
 	"github.com/timhealey/world-cup-predictor/backend/internal/fetchers"
@@ -47,6 +48,9 @@ EOF
 		FetchContext: func(s *store.Store, h, a string) (fetchers.ContextResult, error, string) {
 			return fetchers.ContextResult{}, nil, "no completed matches yet"
 		},
+	})
+	pipeline.SetNowFn(func() time.Time {
+		return time.Date(2026, 6, 25, 10, 0, 0, 0, time.UTC) // 1h before kickoff
 	})
 
 	rec, err := pipeline.Run(context.Background(), "m1", "on_demand")
@@ -99,6 +103,9 @@ EOF
 		FetchContext: func(s *store.Store, h, a string) (fetchers.ContextResult, error, string) {
 			return fetchers.ContextResult{}, nil, "context ok"
 		},
+	})
+	pipeline.SetNowFn(func() time.Time {
+		return time.Date(2026, 6, 25, 10, 0, 0, 0, time.UTC) // 1h before kickoff
 	})
 
 	rec, err := pipeline.Run(context.Background(), "m1", "scheduled")

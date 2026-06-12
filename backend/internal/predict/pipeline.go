@@ -38,11 +38,12 @@ type Pipeline struct {
 	deps          Deps
 	systemPrompt  string
 	promptVersion string
+	nowFn         func() time.Time
 }
 
 func New(s *store.Store, d *claudec.Driver, deps Deps) *Pipeline {
 	sysPrompt, version := loadSystemPrompt()
-	return &Pipeline{store: s, claude: d, deps: deps, systemPrompt: sysPrompt, promptVersion: version}
+	return &Pipeline{store: s, claude: d, deps: deps, systemPrompt: sysPrompt, promptVersion: version, nowFn: time.Now}
 }
 
 func loadSystemPrompt() (string, string) {
