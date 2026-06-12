@@ -71,6 +71,56 @@ EOF
 	}
 }
 
+func TestRun_RejectsAtStartWhenPastKickoff(t *testing.T) {
+	s, _ := store.Open(filepath.Join(t.TempDir(), "wcp.db"))
+	defer s.Close()
+	require.NoError(t, s.UpsertTeam(store.Team{Code: "ARG", Name: "Argentina"}))
+	require.NoError(t, s.UpsertTeam(store.Team{Code: "SAU", Name: "Saudi Arabia"}))
+	require.NoError(t, s.UpsertMatch(store.Match{
+		ID: "m1", HomeTeamCode: "ARG", AwayTeamCode: "SAU",
+		KickoffUTC: "2026-06-25T11:00:00Z", Stage: "group",
+	}))
+
+	tmp := t.TempDir()
+	// Claude script that records each invocation so we can assert it was NOT called.
+	callLog := filepath.Join(tmp, "calls.log")
+	fake := filepath.Join(tmp, "claude")
+	require.NoError(t, os.WriteFile(fake, []byte("#!/bin/sh\necho called >> "+callLog+"\n"), 0o755))
+
+	d := claudec.NewDriver(fake, "test-model")
+	pipeline := New(s, d, Deps{
+		FetchOdds: func(ctx context.Context, h, a, k string) (any, error, string) {
+			return nil, nil, ""
+		},
+		FetchNews: func(ctx context.Context, d any, h, a string) (fetchers.NewsResult, error, string) {
+			return fetchers.NewsResult{}, nil, ""
+		},
+		FetchLineup: func(ctx context.Context, d any, h, a string) (fetchers.LineupResult, error, string) {
+			return fetchers.LineupResult{}, nil, ""
+		},
+		FetchContext: func(s *store.Store, h, a string) (fetchers.ContextResult, error, string) {
+			return fetchers.ContextResult{}, nil, ""
+		},
+	})
+	// Pin "now" to 1 hour after kickoff.
+	pipeline.SetNowFn(func() time.Time {
+		return time.Date(2026, 6, 25, 12, 0, 0, 0, time.UTC)
+	})
+
+	_, err := pipeline.Run(context.Background(), "m1", "on_demand")
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrPredictionPastKickoff)
+
+	// Claude must not have been invoked.
+	_, statErr := os.Stat(callLog)
+	require.True(t, os.IsNotExist(statErr), "claude was called but should not have been")
+
+	// No prediction row should exist for the match.
+	preds, err := s.ListPredictionsByMatch("m1")
+	require.NoError(t, err)
+	require.Len(t, preds, 0)
+}
+
 func TestRunPartialFailureLowersConfidenceAndRecordsErrors(t *testing.T) {
 	s, _ := store.Open(filepath.Join(t.TempDir(), "wcp.db"))
 	defer s.Close()
