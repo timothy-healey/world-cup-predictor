@@ -100,6 +100,17 @@ func Run(ctx context.Context, s *store.Store, c *fdorg.Client, agentsDir, workDi
 			}
 		}
 	}
+	// Daily results agent: pulls finished scores + refreshes predictions.json
+	// once per day. Same unload-then-load dance so re-running bootstrap picks
+	// up any template changes.
+	if agentsDir != "" {
+		binPath, _ := os.Executable()
+		path, err := plist.WriteResultsAgent(agentsDir, binPath, workDir)
+		if err == nil {
+			_ = plist.UnloadAgent(path)
+			_ = plist.LoadAgent(path)
+		}
+	}
 	return nil
 }
 

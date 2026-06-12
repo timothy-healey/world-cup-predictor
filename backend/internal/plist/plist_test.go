@@ -10,6 +10,37 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestWriteResultsAgentEmitsValidPlist(t *testing.T) {
+	dir := t.TempDir()
+	binPath := "/usr/local/bin/wcp"
+	workDir := "/Users/test/world-cup-predictor/backend"
+
+	path, err := WriteResultsAgent(dir, binPath, workDir)
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(dir, "com.wcp.results.plist"), path)
+
+	body, err := os.ReadFile(path)
+	require.NoError(t, err)
+	s := string(body)
+	require.Contains(t, s, "<key>Label</key>")
+	require.Contains(t, s, "com.wcp.results")
+	require.Contains(t, s, binPath)
+	require.Contains(t, s, "<string>results</string>")
+	require.NotContains(t, s, "--email")
+	require.Contains(t, s, "<key>WorkingDirectory</key>")
+	require.Contains(t, s, workDir)
+	require.Contains(t, s, "<key>EnvironmentVariables</key>")
+	require.Contains(t, s, "<key>WCP_DB_PATH</key>")
+	require.Contains(t, s, filepath.Join(workDir, "wcp.db"))
+	require.Contains(t, s, "StartCalendarInterval")
+	// Daily schedule: Hour=21, Minute=0 — no Day/Month/Year keys
+	// (omitting them makes launchd fire every day at this time).
+	require.Contains(t, s, "<integer>21</integer>")
+	require.NotContains(t, s, "<key>Day</key>")
+	require.NotContains(t, s, "<key>Month</key>")
+	require.NotContains(t, s, "<key>Year</key>")
+}
+
 func TestWriteAgentEmitsValidPlist(t *testing.T) {
 	dir := t.TempDir()
 	binPath := "/usr/local/bin/wcp"

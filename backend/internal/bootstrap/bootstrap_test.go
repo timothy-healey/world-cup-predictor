@@ -59,11 +59,15 @@ func TestRunPopulatesTeamsAndMatches(t *testing.T) {
 	matchesAgain, _ := s.ListMatches()
 	require.Len(t, matchesAgain, 1)
 
-	// Plist file should exist for the single match
+	// Plist files: one per-match agent plus the daily results agent.
 	entries, err := os.ReadDir(agentsDir)
 	require.NoError(t, err)
-	require.Len(t, entries, 1)
-	require.Contains(t, entries[0].Name(), "2026-06-25-ARG-vs-SAU")
+	names := []string{}
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	require.Contains(t, names, "com.wcp.2026-06-25-ARG-vs-SAU.plist")
+	require.Contains(t, names, "com.wcp.results.plist")
 }
 
 // TestRunHandlesUnknownTeams reproduces the football-data.org quirk where
