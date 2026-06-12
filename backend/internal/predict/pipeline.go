@@ -208,6 +208,12 @@ func (p *Pipeline) Run(ctx context.Context, matchID, trigger string) (store.Pred
 		Variant:         "full",
 		TraceJSON:       string(traceBytes),
 	}
+	if !p.nowFn().Before(kickoff) {
+		return store.Prediction{}, fmt.Errorf("%w: match=%s kickoff=%s now=%s (pipeline overran)",
+			ErrPredictionPastKickoff, matchID,
+			kickoff.UTC().Format(time.RFC3339),
+			p.nowFn().UTC().Format(time.RFC3339))
+	}
 	id, err := p.store.InsertPrediction(pred)
 	if err != nil {
 		return store.Prediction{}, fmt.Errorf("insert prediction: %w", err)
